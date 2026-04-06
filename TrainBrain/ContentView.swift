@@ -133,7 +133,12 @@ struct HomeView: View {
     // MARK: Brain Score Card
 
     var brainScoreSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
+            // Brain Snapshot card (shown once user has completed a snapshot)
+            if stats.snapshotSessionCount > 0 {
+                brainSnapshotCard
+            }
+
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Brain Score")
@@ -169,6 +174,59 @@ struct HomeView: View {
             .background(Color(.secondarySystemBackground).opacity(0.92),
                         in: RoundedRectangle(cornerRadius: 20))
         }
+    }
+
+    // Brain Snapshot summary card
+    var brainSnapshotCard: some View {
+        NavigationLink(destination: BrainSnapshotView()) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: [.purple, .blue],
+                                              startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Brain Snapshot")
+                        .font(.headline)
+                    if stats.bestBrainScore > 0 {
+                        Text("Best score: \(stats.bestBrainScore) / 1000")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if !stats.canTakeSnapshot {
+                        Text("Next in \(stats.snapshotCooldownRemaining)")
+                            .font(.caption.bold()).foregroundStyle(.orange)
+                    }
+                }
+
+                Spacer()
+
+                if stats.bestBrainScore > 0 {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(stats.bestBrainScore)")
+                            .font(.title3.bold()).foregroundStyle(.purple)
+                        Text("score").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+
+                Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.subheadline)
+            }
+            .padding(16)
+            .background(
+                LinearGradient(colors: [Color.purple.opacity(0.08), Color.blue.opacity(0.08)],
+                                startPoint: .leading, endPoint: .trailing),
+                in: RoundedRectangle(cornerRadius: 16)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.purple.opacity(0.25), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     func metricBadge(_ name: String, score: Int, color: Color) -> some View {
@@ -218,10 +276,51 @@ struct HomeView: View {
                              done: stats.dailyChallengeReflexDone, destination: AnyView(ReflexGameView()))
                 challengeRow("Speed Sprint",     icon: "function",             color: .green,
                              done: stats.dailyChallengeSpeedDone,  destination: AnyView(MathBlitzGameView()))
+                snapshotChallengeRow
             }
         }
         .padding()
         .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    var snapshotChallengeRow: some View {
+        Group {
+            if stats.canTakeSnapshot {
+                NavigationLink(destination: BrainSnapshotView()) {
+                    snapshotRowContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                snapshotRowContent
+                    .opacity(0.6)
+            }
+        }
+    }
+
+    var snapshotRowContent: some View {
+        HStack(spacing: 14) {
+            Image(systemName: stats.dailyChallengeSnapshotDone ? "checkmark.circle.fill" : "brain.head.profile")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(stats.dailyChallengeSnapshotDone ? .green : .purple)
+                .frame(width: 32)
+                .animation(.spring(response: 0.4), value: stats.dailyChallengeSnapshotDone)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Brain Snapshot")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(stats.dailyChallengeSnapshotDone ? .secondary : .primary)
+                if !stats.canTakeSnapshot && !stats.dailyChallengeSnapshotDone {
+                    Text("Available in \(stats.snapshotCooldownRemaining)")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
+            Spacer()
+            if stats.dailyChallengeSnapshotDone {
+                Text("Done").font(.caption.bold()).foregroundStyle(.green)
+            } else if stats.canTakeSnapshot {
+                Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.caption.bold())
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     func challengeRow(_ title: String, icon: String, color: Color, done: Bool, destination: AnyView) -> some View {

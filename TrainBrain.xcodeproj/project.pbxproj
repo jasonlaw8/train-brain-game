@@ -30,6 +30,16 @@
 		AABB0000000000000001B2 /* SpatialMemoryGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001B1 /* SpatialMemoryGameView.swift */; };
 		AABB0000000000000001C2 /* VisualSearchGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001C1 /* VisualSearchGameView.swift */; };
 		AABB0000000000000001D2 /* PatternMatchGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001D1 /* PatternMatchGameView.swift */; };
+		AABB0000000000000001E2 /* SnapshotSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001E1 /* SnapshotSession.swift */; };
+		AABB0000000000000001F2 /* SnapshotNorms.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001F1 /* SnapshotNorms.swift */; };
+		AABB000000000000000202 /* SnapshotScoringEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000201 /* SnapshotScoringEngine.swift */; };
+		AABB000000000000000212 /* LightningTapTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000211 /* LightningTapTaskView.swift */; };
+		AABB000000000000000222 /* ArrowStormTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000221 /* ArrowStormTaskView.swift */; };
+		AABB000000000000000232 /* CardMatchTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000231 /* CardMatchTaskView.swift */; };
+		AABB000000000000000242 /* ShapeShiftTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000241 /* ShapeShiftTaskView.swift */; };
+		AABB000000000000000252 /* SnapshotTransitionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000251 /* SnapshotTransitionView.swift */; };
+		AABB000000000000000262 /* BrainSnapshotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000261 /* BrainSnapshotView.swift */; };
+		AABB000000000000000272 /* SnapshotResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000271 /* SnapshotResultsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +67,16 @@
 		AABB0000000000000001B1 /* SpatialMemoryGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialMemoryGameView.swift; sourceTree = "<group>"; };
 		AABB0000000000000001C1 /* VisualSearchGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSearchGameView.swift; sourceTree = "<group>"; };
 		AABB0000000000000001D1 /* PatternMatchGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternMatchGameView.swift; sourceTree = "<group>"; };
+		AABB0000000000000001E1 /* SnapshotSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotSession.swift; sourceTree = "<group>"; };
+		AABB0000000000000001F1 /* SnapshotNorms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotNorms.swift; sourceTree = "<group>"; };
+		AABB000000000000000201 /* SnapshotScoringEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotScoringEngine.swift; sourceTree = "<group>"; };
+		AABB000000000000000211 /* LightningTapTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningTapTaskView.swift; sourceTree = "<group>"; };
+		AABB000000000000000221 /* ArrowStormTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrowStormTaskView.swift; sourceTree = "<group>"; };
+		AABB000000000000000231 /* CardMatchTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardMatchTaskView.swift; sourceTree = "<group>"; };
+		AABB000000000000000241 /* ShapeShiftTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeShiftTaskView.swift; sourceTree = "<group>"; };
+		AABB000000000000000251 /* SnapshotTransitionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotTransitionView.swift; sourceTree = "<group>"; };
+		AABB000000000000000261 /* BrainSnapshotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSnapshotView.swift; sourceTree = "<group>"; };
+		AABB000000000000000271 /* SnapshotResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotResultsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +124,16 @@
 				AABB0000000000000001B1 /* SpatialMemoryGameView.swift */,
 				AABB0000000000000001C1 /* VisualSearchGameView.swift */,
 				AABB0000000000000001D1 /* PatternMatchGameView.swift */,
+				AABB0000000000000001E1 /* SnapshotSession.swift */,
+				AABB0000000000000001F1 /* SnapshotNorms.swift */,
+				AABB000000000000000201 /* SnapshotScoringEngine.swift */,
+				AABB000000000000000211 /* LightningTapTaskView.swift */,
+				AABB000000000000000221 /* ArrowStormTaskView.swift */,
+				AABB000000000000000231 /* CardMatchTaskView.swift */,
+				AABB000000000000000241 /* ShapeShiftTaskView.swift */,
+				AABB000000000000000251 /* SnapshotTransitionView.swift */,
+				AABB000000000000000261 /* BrainSnapshotView.swift */,
+				AABB000000000000000271 /* SnapshotResultsView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -206,6 +236,16 @@
 				AABB0000000000000001B2 /* SpatialMemoryGameView.swift in Sources */,
 				AABB0000000000000001C2 /* VisualSearchGameView.swift in Sources */,
 				AABB0000000000000001D2 /* PatternMatchGameView.swift in Sources */,
+				AABB0000000000000001E2 /* SnapshotSession.swift in Sources */,
+				AABB0000000000000001F2 /* SnapshotNorms.swift in Sources */,
+				AABB000000000000000202 /* SnapshotScoringEngine.swift in Sources */,
+				AABB000000000000000212 /* LightningTapTaskView.swift in Sources */,
+				AABB000000000000000222 /* ArrowStormTaskView.swift in Sources */,
+				AABB000000000000000232 /* CardMatchTaskView.swift in Sources */,
+				AABB000000000000000242 /* ShapeShiftTaskView.swift in Sources */,
+				AABB000000000000000252 /* SnapshotTransitionView.swift in Sources */,
+				AABB000000000000000262 /* BrainSnapshotView.swift in Sources */,
+				AABB000000000000000272 /* SnapshotResultsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

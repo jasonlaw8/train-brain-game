@@ -71,6 +71,14 @@ final class PlayerStats {
     var dailyChallengeSpatialDone: Bool = false
     var dailyChallengeVisualDone: Bool = false
     var dailyChallengePatternDone: Bool = false
+    var dailyChallengeSnapshotDone: Bool = false
+
+    // MARK: - Brain Snapshot
+    var ageRange: String = ""               // "18-24" | "25-34" | "35-44" | "45-54" | "55+"
+    var snapshotSessionCount: Int = 0
+    var lastSnapshotDate: Date? = nil
+    var baselineBrainScore: Int = 0         // set after session 2 (0 = not yet set)
+    var bestBrainScore: Int = 0             // all-time highest Brain Score (0–1000)
 
     // MARK: - Milestones (track first-time Brain Score thresholds to show toast)
     var milestoneOverall100: Bool = false
@@ -105,11 +113,13 @@ final class PlayerStats {
         dailyChallengeMemoryDone = false; dailyChallengeReflexDone = false
         dailyChallengeSpeedDone = false; dailyChallengeFlankerDone = false
         dailyChallengeSpatialDone = false; dailyChallengeVisualDone = false
-        dailyChallengePatternDone = false
+        dailyChallengePatternDone = false; dailyChallengeSnapshotDone = false
         milestoneOverall100 = false; milestoneOverall110 = false
         milestoneOverall120 = false; milestoneOverall130 = false
         milestoneLevel25 = false; milestoneLevel50 = false
         milestoneLevel100 = false; milestoneLevel200 = false
+        snapshotSessionCount = 0; lastSnapshotDate = nil
+        baselineBrainScore = 0; bestBrainScore = 0; ageRange = ""
     }
 
     // MARK: - Derived
@@ -124,6 +134,19 @@ final class PlayerStats {
     var playedColorToday:  Bool { isToday(colorLastPlayedDate) }
     var playedReflexToday: Bool { isToday(reflexLastPlayedDate) }
     var dailyGamesCompleted: Int { [playedMemoryToday, playedColorToday, playedReflexToday].filter { $0 }.count }
+
+    // MARK: - Brain Snapshot cooldown
+    var canTakeSnapshot: Bool {
+        guard let last = lastSnapshotDate else { return true }
+        return Date().timeIntervalSince(last) >= 86400   // 24 hours
+    }
+    var snapshotCooldownRemaining: String {
+        guard let last = lastSnapshotDate else { return "" }
+        let remaining = max(0, 86400 - Date().timeIntervalSince(last))
+        let h = Int(remaining / 3600)
+        let m = Int((remaining.truncatingRemainder(dividingBy: 3600)) / 60)
+        return "\(h)h \(m)m"
+    }
 
     private func isToday(_ date: Date?) -> Bool {
         guard let date else { return false }
@@ -295,6 +318,36 @@ final class PlayerStats {
         return addXP(correct * 8)
     }
 
+    /// Records a completed Brain Snapshot session. Returns true if player leveled up.
+    /// Also marks all three core daily challenges done (spec §9: snapshot counts for all domains).
+    @discardableResult
+    func recordSnapshotSession(brainScore: Int) -> Bool {
+        snapshotSessionCount += 1
+        lastSnapshotDate = Date()
+
+        // Set baseline on session 2
+        if snapshotSessionCount == 2 {
+            baselineBrainScore = brainScore
+        }
+
+        // XP: +20 base, +10 improvement vs baseline, +20 personal best (max 50)
+        var bonusXP = 0
+        if brainScore > bestBrainScore {
+            bestBrainScore = brainScore
+            bonusXP = 20   // new personal best
+        } else if baselineBrainScore > 0 && brainScore > baselineBrainScore {
+            bonusXP = 10   // improved vs baseline
+        }
+
+        // Mark snapshot + all 3 core daily challenges done
+        markDailyChallenge("snapshot")
+        dailyChallengeMemoryDone = true
+        dailyChallengeReflexDone = true
+        dailyChallengeSpeedDone  = true
+
+        return addXP(20 + bonusXP)
+    }
+
     /// Returns the newly crossed milestone Brain Score threshold (100/110/120/130), or nil.
     @discardableResult
     func checkMilestones() -> Int? {
@@ -322,13 +375,14 @@ final class PlayerStats {
     private func markDailyChallenge(_ type: String) {
         resetDailyChallengesIfNeeded()
         switch type {
-        case "memory":  dailyChallengeMemoryDone  = true
-        case "reflex":  dailyChallengeReflexDone  = true
-        case "speed":   dailyChallengeSpeedDone   = true
-        case "flanker": dailyChallengeFlankerDone  = true
-        case "spatial": dailyChallengeSpatialDone  = true
-        case "visual":  dailyChallengeVisualDone   = true
-        case "pattern": dailyChallengePatternDone  = true
+        case "memory":   dailyChallengeMemoryDone   = true
+        case "reflex":   dailyChallengeReflexDone   = true
+        case "speed":    dailyChallengeSpeedDone    = true
+        case "flanker":  dailyChallengeFlankerDone  = true
+        case "spatial":  dailyChallengeSpatialDone  = true
+        case "visual":   dailyChallengeVisualDone   = true
+        case "pattern":  dailyChallengePatternDone  = true
+        case "snapshot": dailyChallengeSnapshotDone = true
         default: break
         }
     }
@@ -338,13 +392,14 @@ final class PlayerStats {
         let today = calendar.startOfDay(for: Date())
         if let last = dailyChallengeDate {
             if calendar.startOfDay(for: last) < today {
-                dailyChallengeMemoryDone  = false
-                dailyChallengeReflexDone  = false
-                dailyChallengeSpeedDone   = false
-                dailyChallengeFlankerDone = false
-                dailyChallengeSpatialDone = false
-                dailyChallengeVisualDone  = false
-                dailyChallengePatternDone = false
+                dailyChallengeMemoryDone   = false
+                dailyChallengeReflexDone   = false
+                dailyChallengeSpeedDone    = false
+                dailyChallengeFlankerDone  = false
+                dailyChallengeSpatialDone  = false
+                dailyChallengeVisualDone   = false
+                dailyChallengePatternDone  = false
+                dailyChallengeSnapshotDone = false
                 dailyChallengeDate = Date()
             }
         } else {

@@ -230,6 +230,47 @@ let allAchievements: [Achievement] = [
         icon: "sparkles",
         color: .pink
     ) { $0.patternBestScore >= 10 },
+
+    // MARK: Brain Snapshot
+    Achievement(
+        id: "snapshot_1",
+        name: "Brain Mapped",
+        description: "Complete your first Brain Snapshot",
+        icon: "brain.head.profile",
+        color: .purple
+    ) { $0.snapshotSessionCount >= 1 },
+
+    Achievement(
+        id: "snapshot_baseline",
+        name: "Calibrated",
+        description: "Complete both calibration sessions",
+        icon: "scope",
+        color: .indigo
+    ) { $0.snapshotSessionCount >= 2 },
+
+    Achievement(
+        id: "snapshot_improve",
+        name: "Real Growth",
+        description: "Achieve significant improvement on any domain",
+        icon: "chart.line.uptrend.xyaxis",
+        color: .green
+    ) { $0.isAchievementUnlocked("snapshot_improve") },
+
+    Achievement(
+        id: "brain_700",
+        name: "Brain Elite",
+        description: "Reach a Brain Score of 700 or higher",
+        icon: "crown.fill",
+        color: .yellow
+    ) { $0.bestBrainScore >= 700 },
+
+    Achievement(
+        id: "snapshot_10",
+        name: "Dedicated Mind",
+        description: "Complete 10 Brain Snapshots",
+        icon: "calendar.badge.clock",
+        color: .teal
+    ) { $0.snapshotSessionCount >= 10 },
 ]
 
 // MARK: - Check & unlock
