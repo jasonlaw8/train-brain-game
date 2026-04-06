@@ -417,9 +417,7 @@ struct RadarChartView: View {
         let radius = min(size.width, size.height) / 2 - 28
         let n = values.count
         guard n > 0 else { return }
-        let angles = (0..<n).map { i in
-            Double(i) * (2 * .pi / Double(n)) - .pi / 2
-        }
+        let angles: [Double] = (0..<n).map { Double($0) * (2 * .pi / Double(n)) - .pi / 2 }
         drawGrid(ctx: ctx, center: center, radius: radius, angles: angles)
         drawAxes(ctx: ctx, center: center, radius: radius, angles: angles)
         drawData(ctx: ctx, center: center, radius: radius, angles: angles)
