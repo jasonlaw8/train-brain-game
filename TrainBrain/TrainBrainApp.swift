@@ -9,13 +9,18 @@ struct TrainBrainApp: App {
     @AppStorage("notificationMinute") private var notificationMinute = 0
 
     private let container: ModelContainer = {
-        let config = ModelConfiguration(cloudKitDatabase: .automatic)
+        // Try CloudKit-backed store first
         do {
+            let config = ModelConfiguration(cloudKitDatabase: .automatic)
             return try ModelContainer(for: PlayerStats.self, GameSession.self, configurations: config)
-        } catch {
-            // Fallback to local-only if CloudKit container isn't provisioned yet
-            return try! ModelContainer(for: PlayerStats.self, GameSession.self)
-        }
+        } catch {}
+        // Fall back to local-only store
+        do {
+            return try ModelContainer(for: PlayerStats.self, GameSession.self)
+        } catch {}
+        // Last resort: in-memory (no persistence loss risk, app won't crash)
+        return try! ModelContainer(for: PlayerStats.self, GameSession.self,
+                                   configurations: ModelConfiguration(isStoredInMemoryOnly: true))
     }()
 
     init() {
