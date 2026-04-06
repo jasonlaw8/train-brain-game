@@ -150,7 +150,6 @@ struct MathBlitzGameView: View {
     @StateObject private var vm = MathBlitzViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("speedDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {

@@ -63,7 +63,7 @@ struct HomeView: View {
                         .zIndex(19)
                 }
             }
-            .navigationBarHidden(true)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink(destination: SettingsView()) {
