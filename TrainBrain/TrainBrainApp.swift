@@ -8,6 +8,16 @@ struct TrainBrainApp: App {
     @AppStorage("notificationHour") private var notificationHour = 9
     @AppStorage("notificationMinute") private var notificationMinute = 0
 
+    private let container: ModelContainer = {
+        let config = ModelConfiguration(cloudKitDatabase: .automatic)
+        do {
+            return try ModelContainer(for: PlayerStats.self, GameSession.self, configurations: config)
+        } catch {
+            // Fallback to local-only if CloudKit container isn't provisioned yet
+            return try! ModelContainer(for: PlayerStats.self, GameSession.self)
+        }
+    }()
+
     init() {
         // Haptics default to ON — only off if user explicitly disabled
         UserDefaults.standard.register(defaults: ["hapticsEnabled": true])
@@ -35,6 +45,6 @@ struct TrainBrainApp: App {
                 }
             }
         }
-        .modelContainer(for: [PlayerStats.self, GameSession.self], cloudKitDatabase: .automatic)
+        .modelContainer(container)
     }
 }
