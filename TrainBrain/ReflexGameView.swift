@@ -32,7 +32,7 @@ class ReflexGameViewModel: ObservableObject {
         return reactionTimes.reduce(0, +) / Double(reactionTimes.count)
     }
 
-    var onGameOver: ((Double) -> Void)?
+    var onGameOver: ((Double, Double) -> Void)?   // (bestMs, avgMs)
 
     func startGame(difficulty: Difficulty = .medium) {
         self.difficulty = difficulty
@@ -81,7 +81,7 @@ class ReflexGameViewModel: ObservableObject {
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             if reactionTimes.count >= Self.totalRounds {
-                if let best = bestTime { onGameOver?(best) }
+                if let best = bestTime, let avg = averageTime { onGameOver?(best, avg) }
                 gameState = .finished
             } else {
                 nextRound()
@@ -106,6 +106,7 @@ struct ReflexGameView: View {
     @StateObject private var vm = ReflexGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
+    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("reflexDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
@@ -151,9 +152,17 @@ struct ReflexGameView: View {
         .navigationTitle("Reflex")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            vm.onGameOver = { bestMs in
+            vm.onGameOver = { bestMs, avgMs in
                 let isNewBest = stats.reflexBestTimeMs == 0 || bestMs < stats.reflexBestTimeMs
-                stats.recordReflexGame(bestMs: bestMs)
+                let brainScore = PlayerStats.reflexBrainScore(avgMs: avgMs)
+                let session = GameSession(
+                    gameType: "reflex",
+                    rawScore: Int(avgMs),
+                    brainScore: brainScore,
+                    difficulty: difficulty.rawValue
+                )
+                modelContext.insert(session)
+                stats.recordReflexGame(bestMs: bestMs, avgMs: avgMs)
                 if isNewBest {
                     vm.showNewBest = true
                     Haptics.success()
@@ -294,7 +303,12 @@ struct ReflexGameView: View {
                 resultRow("Average human",   value: "~250 ms", color: .secondary)
                 resultRow("Trained athlete", value: "~150 ms", color: .secondary)
                 if let avg = vm.averageTime {
-                    resultRow("Your ranking", value: benchmarkLabel(avg), color: reactionColor(avg))
+                    let bs = PlayerStats.reflexBrainScore(avgMs: avg)
+                    resultRow("Brain Score",  value: "\(bs)",
+                              color: bs >= 100 ? .green : .orange)
+                    resultRow("vs. Average",
+                              value: PlayerStats.percentileLabel(for: bs),
+                              color: bs >= 100 ? .green : .orange)
                 }
                 if stats.reflexBestTimeMs > 0 {
                     Divider()
@@ -355,5 +369,5 @@ struct ReflexGameView: View {
 
 #Preview {
     NavigationStack { ReflexGameView() }
-        .modelContainer(for: PlayerStats.self, inMemory: true)
+        .modelContainer(for: [PlayerStats.self, GameSession.self], inMemory: true)
 }

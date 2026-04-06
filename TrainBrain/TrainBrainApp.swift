@@ -7,6 +7,6 @@ struct TrainBrainApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: PlayerStats.self)
+        .modelContainer(for: [PlayerStats.self, GameSession.self])
     }
 }

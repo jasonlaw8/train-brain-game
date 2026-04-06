@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 // Simon Says: watch the tile sequence light up, then repeat it.
+// Scoring: each game records a GameSession with normalized brainScore based on level reached.
 
 @MainActor
 class MemoryGameViewModel: ObservableObject {
@@ -114,6 +115,7 @@ struct MemoryGameView: View {
     @StateObject private var vm = MemoryGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
+    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("memoryDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
@@ -141,6 +143,14 @@ struct MemoryGameView: View {
         .onAppear {
             vm.onGameOver = { score, level in
                 let isNewBest = score > stats.memoryBestScore
+                let brainScore = PlayerStats.memoryBrainScore(level: level)
+                let session = GameSession(
+                    gameType: "memory",
+                    rawScore: level,
+                    brainScore: brainScore,
+                    difficulty: difficulty.rawValue
+                )
+                modelContext.insert(session)
                 stats.recordMemoryGame(score: score, level: level)
                 if isNewBest && score > 0 {
                     vm.showNewBest = true
@@ -266,6 +276,12 @@ struct MemoryGameView: View {
                     resultRow(label: "Score",         value: "\(vm.finalScore)", color: .blue)
                     resultRow(label: "Level Reached", value: "\(vm.finalLevel)", color: .indigo)
                     Divider()
+                    let bs = PlayerStats.memoryBrainScore(level: vm.finalLevel)
+                    resultRow(label: "Brain Score",   value: "\(bs)", color: .blue)
+                    resultRow(label: "vs. Average",
+                              value: PlayerStats.percentileLabel(for: bs),
+                              color: bs >= 100 ? .green : .orange)
+                    Divider()
                     resultRow(label: "All-Time Best", value: "\(stats.memoryBestScore)", color: .secondary)
                 }
                 .padding()
@@ -357,5 +373,5 @@ struct NewBestBanner: View {
 
 #Preview {
     NavigationStack { MemoryGameView() }
-        .modelContainer(for: PlayerStats.self, inMemory: true)
+        .modelContainer(for: [PlayerStats.self, GameSession.self], inMemory: true)
 }
