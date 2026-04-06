@@ -247,43 +247,27 @@ struct SnapshotResultsView: View {
 
     // MARK: - Change section (session 3+)
 
+    private var scoreDelta: Int {
+        session.brainScore - stats.baselineBrainScore
+    }
+
+    private var rciResult: SnapshotScoringEngine.RCIResult {
+        let rci = SnapshotScoringEngine.reliableChangeIndex(
+            retest: Double(session.brainScore),
+            baseline: Double(stats.baselineBrainScore),
+            sdBaseline: 80,
+            icc: 0.83,
+            expectedPE: 0
+        )
+        return SnapshotScoringEngine.interpretRCI(rci)
+    }
+
     var changeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("vs. Your Baseline")
                 .font(.headline).padding(.horizontal)
 
-            let baselineScore = Double(stats.baselineBrainScore)
-            let currentScore  = Double(session.brainScore)
-            let rci = SnapshotScoringEngine.reliableChangeIndex(
-                retest: currentScore, baseline: baselineScore,
-                sdBaseline: 80,   // approximate SD for Brain Score 0–1000 scale
-                icc: 0.83,
-                expectedPE: 0
-            )
-            let rciResult = SnapshotScoringEngine.interpretRCI(rci)
-
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Brain Score Change")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    let delta = session.brainScore - stats.baselineBrainScore
-                    Text("\(delta >= 0 ? "+" : "")\(delta) pts")
-                        .font(.title3.bold())
-                        .foregroundStyle(delta >= 0 ? .green : .orange)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Status")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    Text(rciLabel(rciResult))
-                        .font(.subheadline.bold())
-                        .foregroundStyle(rciColor(rciResult))
-                }
-            }
-            .padding()
-            .background(Color(.secondarySystemBackground).opacity(0.9),
-                        in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
+            changeDeltaCard
 
             if case .unusualDecrease = rciResult {
                 Text("Day-to-day fluctuations are normal and can be caused by sleep, stress, or distractions.")
@@ -291,6 +275,30 @@ struct SnapshotResultsView: View {
                     .padding(.horizontal)
             }
         }
+    }
+
+    private var changeDeltaCard: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Brain Score Change")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text("\(scoreDelta >= 0 ? "+" : "")\(scoreDelta) pts")
+                    .font(.title3.bold())
+                    .foregroundStyle(scoreDelta >= 0 ? .green : .orange)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Status")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text(rciLabel(rciResult))
+                    .font(.subheadline.bold())
+                    .foregroundStyle(rciColor(rciResult))
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground).opacity(0.9),
+                    in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
     }
 
     func rciLabel(_ r: SnapshotScoringEngine.RCIResult) -> String {
@@ -466,9 +474,24 @@ struct RadarChartView: View {
 
 // MARK: - Snapshot Share Card
 
+private struct ShareDomain: Identifiable {
+    let id: String
+    let label: String
+    let pct: Int
+}
+
 struct SnapshotShareCard: View {
     let session: SnapshotSession
     let stats: PlayerStats
+
+    private var domains: [ShareDomain] {
+        [
+            ShareDomain(id: "speed", label: "Speed", pct: session.speedPercentile),
+            ShareDomain(id: "attn",  label: "Attn",  pct: session.attentionPercentile),
+            ShareDomain(id: "mem",   label: "Mem",   pct: session.memoryPercentile),
+            ShareDomain(id: "flex",  label: "Flex",  pct: session.flexibilityPercentile)
+        ]
+    }
 
     var body: some View {
         ZStack {
@@ -478,72 +501,77 @@ struct SnapshotShareCard: View {
             )
 
             VStack(spacing: 0) {
-                HStack(spacing: 10) {
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 20, weight: .semibold))
-                    Text("Train Brain")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    Spacer()
-                    Text("Brain Snapshot")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .opacity(0.85)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 28)
-                .padding(.top, 28)
-
+                shareCardHeader
                 Spacer()
-
-                // Brain Score
-                HStack(alignment: .lastTextBaseline, spacing: 4) {
-                    Text("\(session.brainScore)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
-                    Text("/ 1000")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .padding(.bottom, 6)
-                }
-                .foregroundStyle(.white)
-
-                Text("Brain Age: \(session.brainAge)")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.top, 4)
-
+                shareCardScore
                 Spacer()
-
-                // Domain row
-                HStack(spacing: 0) {
-                    ForEach([
-                        ("Speed", session.speedPercentile, Color.orange),
-                        ("Attn",  session.attentionPercentile, Color.indigo),
-                        ("Mem",   session.memoryPercentile, Color.blue),
-                        ("Flex",  session.flexibilityPercentile, Color.teal)
-                    ], id: \.0) { label, pct, color in
-                        VStack(spacing: 2) {
-                            Text("\(pct)th")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                            Text(label)
-                                .font(.system(size: 10, weight: .regular, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.7))
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(.horizontal, 28)
-
-                HStack {
-                    Spacer()
-                    Text("trainbrain.app")
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.45))
-                }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 20)
-                .padding(.top, 12)
+                shareCardDomains
+                shareCardFooter
             }
         }
         .frame(width: 400, height: 260)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var shareCardHeader: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 20, weight: .semibold))
+            Text("Train Brain")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+            Spacer()
+            Text("Brain Snapshot")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .opacity(0.85)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 28)
+        .padding(.top, 28)
+    }
+
+    private var shareCardScore: some View {
+        VStack(spacing: 4) {
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                Text("\(session.brainScore)")
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                Text("/ 1000")
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .padding(.bottom, 6)
+            }
+            .foregroundStyle(.white)
+
+            Text("Brain Age: \(session.brainAge)")
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+    }
+
+    private var shareCardDomains: some View {
+        HStack(spacing: 0) {
+            ForEach(domains) { domain in
+                VStack(spacing: 2) {
+                    Text("\(domain.pct)th")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text(domain.label)
+                        .font(.system(size: 10, weight: .regular, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 28)
+    }
+
+    private var shareCardFooter: some View {
+        HStack {
+            Spacer()
+            Text("trainbrain.app")
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.45))
+        }
+        .padding(.horizontal, 28)
+        .padding(.bottom, 20)
+        .padding(.top, 12)
     }
 }
