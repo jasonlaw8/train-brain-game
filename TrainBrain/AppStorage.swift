@@ -50,11 +50,17 @@ final class PlayerStats {
     var milestoneOverall120: Bool = false
     var milestoneOverall130: Bool = false
 
+    // MARK: - Level milestones (no cap — infinite progression)
+    var milestoneLevel25:  Bool = false
+    var milestoneLevel50:  Bool = false
+    var milestoneLevel100: Bool = false
+    var milestoneLevel200: Bool = false
+
     init() {}
 
     // MARK: - Derived
 
-    var playerLevel: Int { min(50, totalXP / 100 + 1) }
+    var playerLevel: Int { totalXP / 100 + 1 }   // no cap — infinite progression
     var xpProgressInCurrentLevel: Int { totalXP % 100 }
     var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount }
 
@@ -184,6 +190,16 @@ final class PlayerStats {
         if !milestoneOverall120 && overall >= 120 { milestoneOverall120 = true; return 120 }
         if !milestoneOverall110 && overall >= 110 { milestoneOverall110 = true; return 110 }
         if !milestoneOverall100 && overall >= 100 { milestoneOverall100 = true; return 100 }
+        return nil
+    }
+
+    /// Returns the newly crossed level milestone (25/50/100/200), or nil.
+    @discardableResult
+    func checkLevelMilestones() -> Int? {
+        if !milestoneLevel200 && playerLevel >= 200 { milestoneLevel200 = true; return 200 }
+        if !milestoneLevel100 && playerLevel >= 100 { milestoneLevel100 = true; return 100 }
+        if !milestoneLevel50  && playerLevel >= 50  { milestoneLevel50  = true; return 50 }
+        if !milestoneLevel25  && playerLevel >= 25  { milestoneLevel25  = true; return 25 }
         return nil
     }
 

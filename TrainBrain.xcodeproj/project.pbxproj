@@ -24,6 +24,8 @@
 		AABB000000000000000080 /* MathBlitzGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001E /* MathBlitzGameView.swift */; };
 		AABB000000000000000081 /* TrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001F /* TrainView.swift */; };
 		AABB000000000000000082 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000021 /* ProgressView.swift */; };
+		AABB000000000000000083 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000084 /* NotificationManager.swift */; };
+		AABB000000000000000091 /* TrainBrain.entitlements in Resources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000090 /* TrainBrain.entitlements */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +46,8 @@
 		AABB00000000000000001E /* MathBlitzGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathBlitzGameView.swift; sourceTree = "<group>"; };
 		AABB00000000000000001F /* TrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainView.swift; sourceTree = "<group>"; };
 		AABB000000000000000021 /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
+		AABB000000000000000084 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		AABB000000000000000090 /* TrainBrain.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrainBrain.entitlements; sourceTree = "<group>"; };
 		AABB000000000000000016 /* TrainBrain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrainBrain.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -86,6 +90,8 @@
 				AABB00000000000000001E /* MathBlitzGameView.swift */,
 				AABB00000000000000001F /* TrainView.swift */,
 				AABB000000000000000021 /* ProgressView.swift */,
+				AABB000000000000000084 /* NotificationManager.swift */,
+				AABB000000000000000090 /* TrainBrain.entitlements */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -183,6 +189,7 @@
 				AABB000000000000000080 /* MathBlitzGameView.swift in Sources */,
 				AABB000000000000000081 /* TrainView.swift in Sources */,
 				AABB000000000000000082 /* ProgressView.swift in Sources */,
+				AABB000000000000000083 /* NotificationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,6 +307,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TrainBrain/TrainBrain.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
@@ -327,6 +335,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TrainBrain/TrainBrain.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;

@@ -90,6 +90,7 @@ struct HomeView: View {
             .onAppear {
                 prevLevel = stats.playerLevel
                 checkMilestones()
+                checkLevelMilestones()
             }
             .onChange(of: stats.playerLevel) { _, newLevel in
                 guard newLevel > prevLevel else { return }
@@ -300,6 +301,19 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(3))
                 withAnimation { showMilestone = false }
             }
+        }
+    }
+
+    func checkLevelMilestones() {
+        if let milestone = stats.checkLevelMilestones() {
+            // Reuse the level-up banner with milestone copy
+            showLevelUp = true
+            prevLevel = stats.playerLevel  // prevent double-fire
+            Task {
+                try? await Task.sleep(for: .seconds(2.5))
+                showLevelUp = false
+            }
+            _ = milestone  // milestone level available here for custom copy if needed
         }
     }
 }

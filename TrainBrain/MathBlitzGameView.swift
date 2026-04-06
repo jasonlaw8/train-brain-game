@@ -401,6 +401,14 @@ struct MathBlitzGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
+            ShareResultButton(
+                gameName: "Math Blitz", gameIcon: "function", gameColor: .green,
+                primaryValue: "\(vm.finalScore)", primaryLabel: "correct",
+                secondaryLine: "Brain Score: \(vm.finalBrainScore)"
+            )
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+
             Button { vm.startGame(difficulty: difficulty) } label: {
                 Text("Play Again")
                     .font(.title3.bold())

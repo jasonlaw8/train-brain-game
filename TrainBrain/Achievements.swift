@@ -128,6 +128,40 @@ let allAchievements: [Achievement] = [
         icon: "calendar.badge.checkmark",
         color: .green
     ) { $0.dailyStreakCount >= 7 },
+
+    // MARK: Math Blitz
+    Achievement(
+        id: "speed_20",
+        name: "Speed Demon",
+        description: "Get 20 correct in Math Blitz",
+        icon: "function",
+        color: .green
+    ) { $0.speedBestScore >= 20 },
+
+    Achievement(
+        id: "speed_40",
+        name: "Math Wizard",
+        description: "Get 40 correct in Math Blitz",
+        icon: "plus.forwardslash.minus",
+        color: .teal
+    ) { $0.speedBestScore >= 40 },
+
+    Achievement(
+        id: "speed_60",
+        name: "Calculation King",
+        description: "Get 60 correct in Math Blitz",
+        icon: "crown.fill",
+        color: .green
+    ) { $0.speedBestScore >= 60 },
+
+    // MARK: Overall Brain Score
+    Achievement(
+        id: "brain_110",
+        name: "Above Average",
+        description: "Reach an overall Brain Score of 110",
+        icon: "brain.filled.head.profile",
+        color: .indigo
+    ) { $0.overallBrainScore >= 110 },
 ]
 
 // MARK: - Check & unlock

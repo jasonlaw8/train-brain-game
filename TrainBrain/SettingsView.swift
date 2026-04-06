@@ -1,12 +1,93 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - SettingsView
 
 struct SettingsView: View {
+    // Haptics
     @AppStorage("hapticsEnabled") var hapticsEnabled = true
+
+    // Notifications
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = false
+    @AppStorage("notificationHour")     private var notificationHour = 9
+    @AppStorage("notificationMinute")   private var notificationMinute = 0
+
+    // Streak (for streak-aware notification body on reschedule)
+    @Query private var statsQuery: [PlayerStats]
+    @Environment(\.modelContext) private var modelContext
+    private var stats: PlayerStats {
+        if let s = statsQuery.first { return s }
+        let s = PlayerStats(); modelContext.insert(s); return s
+    }
+
+    @State private var showPermissionDeniedAlert = false
+    @State private var notificationTime: Date = {
+        var c = DateComponents(); c.hour = 9; c.minute = 0
+        return Calendar.current.date(from: c) ?? Date()
+    }()
 
     var body: some View {
         Form {
+            // MARK: Notifications
+            Section {
+                Toggle(isOn: $notificationsEnabled) {
+                    Label("Daily Reminder", systemImage: "bell.fill")
+                }
+                .onChange(of: notificationsEnabled) { _, enabled in
+                    if enabled {
+                        Task {
+                            let granted = await NotificationManager.shared.requestPermission()
+                            if granted {
+                                reschedule()
+                            } else {
+                                notificationsEnabled = false
+                                showPermissionDeniedAlert = true
+                            }
+                        }
+                    } else {
+                        NotificationManager.shared.cancelReminder()
+                    }
+                }
+
+                if notificationsEnabled {
+                    DatePicker(
+                        "Remind me at",
+                        selection: $notificationTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .onChange(of: notificationTime) { _, newTime in
+                        let cal = Calendar.current
+                        notificationHour   = cal.component(.hour,   from: newTime)
+                        notificationMinute = cal.component(.minute, from: newTime)
+                        reschedule()
+                    }
+                    .onAppear {
+                        // Sync picker to stored values
+                        var c = DateComponents()
+                        c.hour   = notificationHour
+                        c.minute = notificationMinute
+                        if let d = Calendar.current.date(from: c) { notificationTime = d }
+                    }
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("One reminder per day, never more. We'll include your streak count so you know what's at stake.")
+            }
+
+            // MARK: iCloud Sync
+            Section {
+                HStack {
+                    Label("Sync with iCloud", systemImage: "icloud.fill")
+                    Spacer()
+                    Text("On").foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("iCloud Sync")
+            } footer: {
+                Text("Your progress, Brain Score, and streaks sync automatically across your devices when iCloud is enabled.")
+            }
+
             // MARK: Preferences
             Section("Preferences") {
                 Toggle(isOn: $hapticsEnabled) {
@@ -17,20 +98,15 @@ struct SettingsView: View {
             // MARK: About
             Section("About") {
                 LabeledContent("App") {
-                    Text("TrainBrain")
-                        .foregroundStyle(.secondary)
+                    Text("TrainBrain").foregroundStyle(.secondary)
                 }
-
                 LabeledContent("Version") {
-                    Text("1.0")
-                        .foregroundStyle(.secondary)
+                    Text("1.0").foregroundStyle(.secondary)
                 }
-
                 HStack {
                     Spacer()
                     Text("Train your brain daily")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     Spacer()
                 }
@@ -39,11 +115,28 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Notifications Disabled", isPresented: $showPermissionDeniedAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("To receive daily reminders, enable notifications for Train Brain in iOS Settings.")
+        }
+    }
+
+    private func reschedule() {
+        NotificationManager.shared.scheduleDailyReminder(
+            hour: notificationHour,
+            minute: notificationMinute,
+            streakCount: stats.dailyStreakCount
+        )
     }
 }
 
 #Preview {
-    NavigationStack {
-        SettingsView()
-    }
+    NavigationStack { SettingsView() }
+        .modelContainer(for: PlayerStats.self, inMemory: true)
 }

@@ -9,8 +9,8 @@ struct OnboardingView: View {
 
     @State private var currentPage = 0
 
-    // Pages: 0-2 = brain facts (ours), 3-5 = animated game demos (theirs)
-    private let totalPages = 6
+    // Pages: 0-2 = brain facts, 3-6 = animated game demos (Memory, Color, Reflex, Math Blitz)
+    private let totalPages = 7
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -66,8 +66,11 @@ struct OnboardingView: View {
                 ColorOnboardingPage()
                     .tag(4)
 
-                ReflexOnboardingPage(onComplete: onComplete)
+                ReflexOnboardingPage()
                     .tag(5)
+
+                MathBlitzOnboardingPage(onComplete: onComplete)
+                    .tag(6)
             }
             .tabViewStyle(.page)
             .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -279,11 +282,9 @@ private struct ColorOnboardingPage: View {
     }
 }
 
-// MARK: - Page: Reflex demo + Get Started
+// MARK: - Page: Reflex demo (intermediate — no Get Started)
 
 private struct ReflexOnboardingPage: View {
-    var onComplete: () -> Void
-
     @State private var iconBounce = false
     @State private var circleScale: CGFloat = 1.0
     @State private var circleGlow = false
@@ -334,13 +335,86 @@ private struct ReflexOnboardingPage: View {
                 }
             }
 
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Page: Math Blitz demo + Get Started
+
+private struct MathBlitzOnboardingPage: View {
+    var onComplete: () -> Void
+
+    @State private var iconBounce = false
+    @State private var currentProblemIndex = 0
+    @State private var highlightedAnswer: Int? = nil
+
+    // Three sample problems: (display, answers, correct-index)
+    private let problems: [(question: String, answers: [Int], correctIndex: Int)] = [
+        ("7 + 3", [10, 8, 12, 5], 0),
+        ("12 − 5", [9, 7, 6, 8], 1),
+        ("4 × 6", [18, 28, 24, 20], 2),
+    ]
+
+    private var current: (question: String, answers: [Int], correctIndex: Int) {
+        problems[currentProblemIndex]
+    }
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "function")
+                .font(.system(size: 64))
+                .foregroundStyle(.green)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle(); startDemoLoop() }
+
+            VStack(spacing: 8) {
+                Text("Math Blitz")
+                    .font(.largeTitle.bold())
+                Text("Answer as many problems as you can\nin 60 seconds")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            // Demo card
+            VStack(spacing: 16) {
+                Text("\(current.question) = ?")
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .animation(nil, value: currentProblemIndex)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(Array(current.answers.enumerated()), id: \.offset) { i, answer in
+                        Text("\(answer)")
+                            .font(.title2.bold())
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(highlightedAnswer == i
+                                          ? Color.green
+                                          : Color(.tertiarySystemBackground))
+                            )
+                            .foregroundStyle(highlightedAnswer == i ? .white : .primary)
+                            .animation(.easeInOut(duration: 0.25), value: highlightedAnswer)
+                    }
+                }
+            }
+            .padding(24)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.secondarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 32)
+
+            // Get Started
             Button {
                 withAnimation(.easeInOut(duration: 0.35)) { onComplete() }
             } label: {
                 Text("Get Started")
                     .font(.title3.bold()).foregroundStyle(.white)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.orange))
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.green))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 32).padding(.top, 4)
@@ -348,6 +422,23 @@ private struct ReflexOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+    }
+
+    // Cycle through problems, highlighting the correct answer
+    private func startDemoLoop() {
+        func showAnswer() {
+            highlightedAnswer = current.correctIndex
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                highlightedAnswer = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    currentProblemIndex = (currentProblemIndex + 1) % problems.count
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        showAnswer()
+                    }
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { showAnswer() }
     }
 }
 
