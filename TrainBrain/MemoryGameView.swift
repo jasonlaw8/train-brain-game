@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // Simon Says: watch the tile sequence light up, then repeat it.
 
@@ -15,12 +16,23 @@ class MemoryGameViewModel: ObservableObject {
     @Published var level = 1
     @Published var score = 0
     @Published var message = "Tap Start to begin"
+    @Published var showNewBest = false
 
-    enum GameState { case idle, playing, input, success, failure }
+    // Game-over snapshot
+    @Published var finalScore = 0
+    @Published var finalLevel = 0
+
+    enum GameState { case idle, playing, input, success, failure, gameOver }
 
     private var sequence: [Int] = []
     private var playerInput: [Int] = []
     private var playbackTask: Task<Void, Never>?
+
+    var inputProgress: Int { playerInput.count }
+    var sequenceLength: Int { sequence.count }
+
+    // Called by the view after game over to persist results
+    var onGameOver: ((Int, Int) -> Void)?  // (score, level)
 
     func tileColor(at index: Int) -> Color {
         let base = tileColors[index]
@@ -44,19 +56,17 @@ class MemoryGameViewModel: ObservableObject {
         playerInput.append(index)
 
         if index != expected {
-            gameState = .failure
+            Haptics.error()
+            finalScore = score
+            finalLevel = level
+            onGameOver?(score, level)
+            gameState = .gameOver
             playerTurn = false
-            message = "Wrong! Score: \(score)"
-            playbackTask = Task {
-                highlightedTile = expected
-                try? await Task.sleep(for: .seconds(1.2))
-                guard !Task.isCancelled else { return }
-                highlightedTile = nil
-                gameState = .idle
-                message = "Game over! Tap Start to try again"
-            }
+            playbackTask?.cancel()
             return
         }
+
+        Haptics.medium()
 
         if playerInput.count == sequence.count {
             score += level * 10
@@ -101,20 +111,69 @@ class MemoryGameViewModel: ObservableObject {
 
 struct MemoryGameView: View {
     @StateObject private var vm = MemoryGameViewModel()
+    @Environment(\.modelContext) private var modelContext
+    @Query private var statsQuery: [PlayerStats]
+
+    private var stats: PlayerStats {
+        if let s = statsQuery.first { return s }
+        let s = PlayerStats()
+        modelContext.insert(s)
+        return s
+    }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
     var body: some View {
+        ZStack {
+            gameContent
+
+            if vm.showNewBest {
+                NewBestBanner()
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(10)
+            }
+        }
+        .animation(.spring(response: 0.4), value: vm.showNewBest)
+        .navigationTitle("Memory")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            vm.onGameOver = { score, level in
+                let isNewBest = score > stats.memoryBestScore
+                stats.recordMemoryGame(score: score, level: level)
+                if isNewBest && score > 0 {
+                    vm.showNewBest = true
+                    Haptics.success()
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        vm.showNewBest = false
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    var gameContent: some View {
+        if vm.gameState == .gameOver {
+            gameOverScreen
+        } else {
+            playScreen
+        }
+    }
+
+    // MARK: - Play Screen
+
+    var playScreen: some View {
         VStack(spacing: 20) {
-            // Score bar
             HStack {
                 StatBadge(label: "Score", value: "\(vm.score)", color: .blue)
                 Spacer()
                 StatBadge(label: "Level", value: "\(vm.level)", color: .indigo)
+                Spacer()
+                StatBadge(label: "Best", value: "\(stats.memoryBestScore)", color: .secondary)
             }
             .padding(.horizontal)
 
-            // Message
             Text(vm.message)
                 .font(.headline)
                 .multilineTextAlignment(.center)
@@ -122,7 +181,20 @@ struct MemoryGameView: View {
                 .animation(.easeInOut(duration: 0.2), value: vm.message)
                 .frame(minHeight: 24)
 
-            // Tile grid
+            // Progress dots during input
+            if vm.playerTurn || vm.gameState == .input {
+                HStack(spacing: 6) {
+                    ForEach(0..<vm.sequenceLength, id: \.self) { i in
+                        Circle()
+                            .fill(i < vm.inputProgress ? Color.blue : Color(.systemGray4))
+                            .frame(width: 10, height: 10)
+                    }
+                }
+                .animation(.easeInOut, value: vm.inputProgress)
+            } else {
+                Color.clear.frame(height: 10)
+            }
+
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(0..<9, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 18)
@@ -135,9 +207,7 @@ struct MemoryGameView: View {
                             radius: 12
                         )
                         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: vm.highlightedTile)
-                        .onTapGesture {
-                            vm.tileTapped(index)
-                        }
+                        .onTapGesture { vm.tileTapped(index) }
                 }
             }
             .padding(.horizontal)
@@ -147,7 +217,7 @@ struct MemoryGameView: View {
             Button {
                 vm.startGame()
             } label: {
-                Text(vm.gameState == .idle || vm.gameState == .failure ? "Start" : "Restart")
+                Text(vm.gameState == .idle ? "Start" : "Restart")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -159,8 +229,62 @@ struct MemoryGameView: View {
             .opacity(vm.gameState == .playing || vm.gameState == .input || vm.gameState == .success ? 0.4 : 1)
         }
         .padding(.vertical)
-        .navigationTitle("Memory")
-        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Game Over Screen
+
+    var gameOverScreen: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 24) {
+                Image(systemName: "brain")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.blue)
+
+                Text("Game Over")
+                    .font(.largeTitle.bold())
+
+                VStack(spacing: 12) {
+                    resultRow(label: "Score", value: "\(vm.finalScore)", color: .blue)
+                    resultRow(label: "Level Reached", value: "\(vm.finalLevel)", color: .indigo)
+                    Divider()
+                    resultRow(label: "All-Time Best", value: "\(stats.memoryBestScore)", color: .secondary)
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal)
+
+                if vm.finalScore > 0 && vm.finalScore == stats.memoryBestScore {
+                    Label("New personal best!", systemImage: "star.fill")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.yellow)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                vm.startGame()
+            } label: {
+                Text("Play Again")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 20)
+        }
+    }
+
+    func resultRow(label: String, value: String, color: Color) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).font(.title3.bold()).foregroundStyle(color)
+        }
     }
 
     var messageColor: Color {
@@ -171,6 +295,8 @@ struct MemoryGameView: View {
         }
     }
 }
+
+// MARK: - Shared UI Components
 
 struct StatBadge: View {
     let label: String
@@ -189,6 +315,31 @@ struct StatBadge: View {
     }
 }
 
+struct NewBestBanner: View {
+    var body: some View {
+        VStack {
+            HStack(spacing: 8) {
+                Image(systemName: "star.fill")
+                Text("New Personal Best!")
+                    .font(.subheadline.bold())
+                Image(systemName: "star.fill")
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(
+                Capsule().fill(
+                    LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing)
+                )
+            )
+            .shadow(color: .orange.opacity(0.4), radius: 10)
+            .padding(.top, 8)
+            Spacer()
+        }
+    }
+}
+
 #Preview {
     NavigationStack { MemoryGameView() }
+        .modelContainer(for: PlayerStats.self, inMemory: true)
 }

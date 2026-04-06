@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // Tap the orange circle as fast as you can. 8 rounds, then results.
 
@@ -13,6 +14,7 @@ class ReflexGameViewModel: ObservableObject {
     @Published var lastReactionMs: Double? = nil
     @Published var tooEarly = false
     @Published var reactionTimes: [Double] = []
+    @Published var showNewBest = false
 
     var containerSize: CGSize = CGSize(width: 300, height: 460)
     private var targetAppearTime: Date?
@@ -27,6 +29,8 @@ class ReflexGameViewModel: ObservableObject {
         guard !reactionTimes.isEmpty else { return nil }
         return reactionTimes.reduce(0, +) / Double(reactionTimes.count)
     }
+
+    var onGameOver: ((Double) -> Void)?  // best reaction time ms
 
     func startGame() {
         reactionTimes = []
@@ -66,12 +70,16 @@ class ReflexGameViewModel: ObservableObject {
         reactionTimes.append(ms)
         targetVisible = false
         gameState = .roundResult
+        Haptics.light()
 
         waitTask?.cancel()
         waitTask = Task {
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             if reactionTimes.count >= Self.totalRounds {
+                if let best = bestTime {
+                    onGameOver?(best)
+                }
                 gameState = .finished
             } else {
                 nextRound()
@@ -83,6 +91,7 @@ class ReflexGameViewModel: ObservableObject {
         guard gameState == .waiting else { return }
         waitTask?.cancel()
         tooEarly = true
+        Haptics.error()
         waitTask = Task {
             try? await Task.sleep(for: .seconds(1.2))
             guard !Task.isCancelled else { return }
@@ -93,36 +102,74 @@ class ReflexGameViewModel: ObservableObject {
 
 struct ReflexGameView: View {
     @StateObject private var vm = ReflexGameViewModel()
+    @Environment(\.modelContext) private var modelContext
+    @Query private var statsQuery: [PlayerStats]
+
+    private var stats: PlayerStats {
+        if let s = statsQuery.first { return s }
+        let s = PlayerStats()
+        modelContext.insert(s)
+        return s
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                StatBadge(
-                    label: "Round",
-                    value: "\(min(vm.currentRound, ReflexGameViewModel.totalRounds))/\(ReflexGameViewModel.totalRounds)",
-                    color: .orange
-                )
-                Spacer()
-                if let best = vm.bestTime {
+        ZStack {
+            VStack(spacing: 0) {
+                // Header
+                HStack {
                     StatBadge(
-                        label: "Best",
-                        value: String(format: "%.0f ms", best),
-                        color: reactionColor(best)
+                        label: "Round",
+                        value: "\(min(vm.currentRound, ReflexGameViewModel.totalRounds))/\(ReflexGameViewModel.totalRounds)",
+                        color: .orange
                     )
+                    Spacer()
+                    if let best = vm.bestTime {
+                        StatBadge(
+                            label: "Best",
+                            value: String(format: "%.0f ms", best),
+                            color: reactionColor(best)
+                        )
+                    } else if stats.reflexBestTimeMs > 0 {
+                        StatBadge(
+                            label: "Record",
+                            value: String(format: "%.0f ms", stats.reflexBestTimeMs),
+                            color: reactionColor(stats.reflexBestTimeMs)
+                        )
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+                if vm.gameState == .idle || vm.gameState == .finished {
+                    idleOrResultView
+                } else {
+                    arenaView
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
 
-            if vm.gameState == .idle || vm.gameState == .finished {
-                idleOrResultView
-            } else {
-                arenaView
+            if vm.showNewBest {
+                NewBestBanner()
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(10)
             }
         }
+        .animation(.spring(response: 0.4), value: vm.showNewBest)
         .navigationTitle("Reflex")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            vm.onGameOver = { bestMs in
+                let isNewBest = stats.reflexBestTimeMs == 0 || bestMs < stats.reflexBestTimeMs
+                stats.recordReflexGame(bestMs: bestMs)
+                if isNewBest {
+                    vm.showNewBest = true
+                    Haptics.success()
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        vm.showNewBest = false
+                    }
+                }
+            }
+        }
     }
 
     // MARK: Arena
@@ -130,18 +177,15 @@ struct ReflexGameView: View {
     var arenaView: some View {
         GeometryReader { geo in
             ZStack {
-                // Tappable background (too-early zone)
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color(.systemGray6))
                     .onTapGesture { vm.backgroundTapped() }
 
-                // Status message
                 VStack {
                     statusMessage
                         .padding(.top, 24)
                     Spacer()
 
-                    // Recent times row
                     if !vm.reactionTimes.isEmpty {
                         HStack(spacing: 6) {
                             ForEach(Array(vm.reactionTimes.suffix(5).enumerated()), id: \.offset) { _, t in
@@ -158,7 +202,6 @@ struct ReflexGameView: View {
                     }
                 }
 
-                // Target circle
                 if vm.targetVisible {
                     Circle()
                         .fill(
@@ -184,12 +227,8 @@ struct ReflexGameView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal)
             .padding(.vertical, 12)
-            .onAppear {
-                vm.containerSize = geo.size
-            }
-            .onChange(of: geo.size) { _, newSize in
-                vm.containerSize = newSize
-            }
+            .onAppear { vm.containerSize = geo.size }
+            .onChange(of: geo.size) { _, newSize in vm.containerSize = newSize }
         }
         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: vm.targetVisible)
     }
@@ -268,6 +307,11 @@ struct ReflexGameView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
+            if stats.reflexBestTimeMs > 0 {
+                Label(String(format: "Record: %.0f ms", stats.reflexBestTimeMs), systemImage: "trophy.fill")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.yellow)
+            }
         }
     }
 
@@ -278,10 +322,21 @@ struct ReflexGameView: View {
 
             VStack(spacing: 10) {
                 if let avg = vm.averageTime {
-                    resultRow("Average", value: String(format: "%.0f ms", avg), color: reactionColor(avg))
+                    resultRow("Your Average", value: String(format: "%.0f ms", avg), color: reactionColor(avg))
                 }
                 if let best = vm.bestTime {
-                    resultRow("Best", value: String(format: "%.0f ms", best), color: reactionColor(best))
+                    resultRow("Your Best", value: String(format: "%.0f ms", best), color: reactionColor(best))
+                }
+                Divider()
+                // Benchmark comparisons
+                resultRow("Average human", value: "~250 ms", color: .secondary)
+                resultRow("Trained athlete", value: "~150 ms", color: .secondary)
+                if let avg = vm.averageTime {
+                    resultRow("Your ranking", value: benchmarkLabel(avg), color: reactionColor(avg))
+                }
+                if stats.reflexBestTimeMs > 0 {
+                    Divider()
+                    resultRow("All-Time Record", value: String(format: "%.0f ms", stats.reflexBestTimeMs), color: .yellow)
                 }
             }
             .padding()
@@ -310,7 +365,7 @@ struct ReflexGameView: View {
         HStack {
             Text(label).foregroundStyle(.secondary)
             Spacer()
-            Text(value).font(.title3.bold().monospacedDigit()).foregroundStyle(color)
+            Text(value).font(.subheadline.monospacedDigit().bold()).foregroundStyle(color)
         }
     }
 
@@ -327,8 +382,17 @@ struct ReflexGameView: View {
         if ms < 450 { return "Not bad" }
         return "Keep practicing"
     }
+
+    func benchmarkLabel(_ avg: Double) -> String {
+        if avg < 180 { return "Top 1%" }
+        if avg < 220 { return "Top 10%" }
+        if avg < 270 { return "Top 25%" }
+        if avg < 350 { return "Average" }
+        return "Below average"
+    }
 }
 
 #Preview {
     NavigationStack { ReflexGameView() }
+        .modelContainer(for: PlayerStats.self, inMemory: true)
 }

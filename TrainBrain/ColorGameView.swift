@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // Stroop test: the word's INK color is what you tap — not what it says.
 
@@ -28,16 +29,28 @@ class ColorGameViewModel: ObservableObject {
     @Published var timeRemaining: Double = 30
     @Published var gameState: GameState = .idle
     @Published var lastCorrect: Bool? = nil
+    @Published var showNewBest = false
 
     private var correctOption: ColorOption?
     private var timer: Timer?
+    private var totalAttempts = 0
+    private var correctAttempts = 0
+
+    var accuracy: Int {
+        guard totalAttempts > 0 else { return 0 }
+        return Int(Double(correctAttempts) / Double(totalAttempts) * 100)
+    }
 
     enum GameState { case idle, playing, gameOver }
+
+    var onGameOver: ((Int, Int) -> Void)?  // (score, streak)
 
     func startGame() {
         score = 0
         streak = 0
         bestStreak = 0
+        totalAttempts = 0
+        correctAttempts = 0
         timeRemaining = 30
         gameState = .playing
         nextQuestion()
@@ -48,15 +61,19 @@ class ColorGameViewModel: ObservableObject {
         guard gameState == .playing else { return }
         let correct = option == correctOption
         lastCorrect = correct
+        totalAttempts += 1
 
         if correct {
+            correctAttempts += 1
             streak += 1
             bestStreak = max(bestStreak, streak)
             let bonus = streak >= 5 ? 30 : streak >= 3 ? 20 : 10
             score += bonus
+            Haptics.medium()
         } else {
             streak = 0
             score = max(0, score - 5)
+            Haptics.error()
         }
 
         Task {
@@ -95,48 +112,80 @@ class ColorGameViewModel: ObservableObject {
     func endGame() {
         timer?.invalidate()
         timer = nil
+        onGameOver?(score, bestStreak)
         gameState = .gameOver
     }
 }
 
 struct ColorGameView: View {
     @StateObject private var vm = ColorGameViewModel()
+    @Environment(\.modelContext) private var modelContext
+    @Query private var statsQuery: [PlayerStats]
+
+    private var stats: PlayerStats {
+        if let s = statsQuery.first { return s }
+        let s = PlayerStats()
+        modelContext.insert(s)
+        return s
+    }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header stats
-            HStack {
-                StatBadge(label: "Score", value: "\(vm.score)", color: .purple)
-                Spacer()
-                // Streak badge with SF Symbol flame
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Streak")
-                        .font(.caption.smallCaps())
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                        Text("\(vm.streak)")
+        ZStack {
+            VStack(spacing: 0) {
+                // Header stats
+                HStack {
+                    StatBadge(label: "Score", value: "\(vm.score)", color: .purple)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Streak")
+                            .font(.caption.smallCaps())
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                            Text("\(vm.streak)")
+                        }
+                        .font(.title2.bold())
+                        .foregroundStyle(.orange)
                     }
-                    .font(.title2.bold())
-                    .foregroundStyle(.orange)
                 }
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
+                .padding(.horizontal)
+                .padding(.top, 8)
 
-            Group {
-                switch vm.gameState {
-                case .idle:    idleView
-                case .playing: playingView
-                case .gameOver: gameOverView
+                Group {
+                    switch vm.gameState {
+                    case .idle:     idleView
+                    case .playing:  playingView
+                    case .gameOver: gameOverView
+                    }
                 }
+                .animation(.easeInOut(duration: 0.25), value: vm.gameState)
             }
-            .animation(.easeInOut(duration: 0.25), value: vm.gameState)
+
+            if vm.showNewBest {
+                NewBestBanner()
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(10)
+            }
         }
+        .animation(.spring(response: 0.4), value: vm.showNewBest)
         .navigationTitle("Color")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            vm.onGameOver = { score, streak in
+                let isNewBest = score > stats.colorBestScore
+                stats.recordColorGame(score: score, streak: streak)
+                if isNewBest && score > 0 {
+                    vm.showNewBest = true
+                    Haptics.success()
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        vm.showNewBest = false
+                    }
+                }
+            }
+        }
     }
 
     // MARK: Idle
@@ -155,6 +204,11 @@ struct ColorGameView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
+                if stats.colorBestScore > 0 {
+                    Label("Best: \(stats.colorBestScore) pts", systemImage: "trophy.fill")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.yellow)
+                }
             }
             Spacer()
             startButton(label: "Start", color: .purple)
@@ -165,7 +219,6 @@ struct ColorGameView: View {
 
     var playingView: some View {
         VStack(spacing: 20) {
-            // Timer bar
             VStack(spacing: 4) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -187,7 +240,6 @@ struct ColorGameView: View {
 
             Spacer()
 
-            // Stroop word
             ZStack {
                 Text(vm.wordText)
                     .font(.system(size: 80, weight: .black))
@@ -201,17 +253,15 @@ struct ColorGameView: View {
             }
             .animation(.spring(response: 0.3), value: vm.wordText)
 
-            // Feedback
             if let correct = vm.lastCorrect {
-                Text(correct ? "✓" : "✗")
-                    .font(.title.bold())
+                Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.title)
                     .foregroundStyle(correct ? Color.green : Color.red)
                     .transition(.scale.combined(with: .opacity))
             }
 
             Spacer()
 
-            // Color choice buttons
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(vm.choices) { option in
                     Button {
@@ -245,7 +295,8 @@ struct ColorGameView: View {
                     .font(.largeTitle.bold())
 
                 VStack(spacing: 12) {
-                    resultRow(label: "Final Score", value: "\(vm.score)", color: .purple)
+                    resultRow(label: "Score", value: "\(vm.score)", color: .purple)
+                    resultRow(label: "Accuracy", value: "\(vm.accuracy)%", color: .blue)
                     HStack {
                         Text("Best Streak").foregroundStyle(.secondary)
                         Spacer()
@@ -256,6 +307,8 @@ struct ColorGameView: View {
                         .font(.title3.bold())
                         .foregroundStyle(.orange)
                     }
+                    Divider()
+                    resultRow(label: "All-Time Best", value: "\(stats.colorBestScore)", color: .secondary)
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -308,4 +361,5 @@ struct ColorGameView: View {
 
 #Preview {
     NavigationStack { ColorGameView() }
+        .modelContainer(for: PlayerStats.self, inMemory: true)
 }
