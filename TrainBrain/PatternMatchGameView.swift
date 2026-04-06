@@ -581,7 +581,6 @@ struct PatternMatchGameView: View {
     // MARK: - Helpers
 
     var accuracy: Int {
-        let total = PatternMatchViewModel.totalQuestions
         guard vm.questionIndex > 0 || vm.gameState == .gameOver else { return 100 }
         let attempted = vm.gameState == .gameOver
             ? PatternMatchViewModel.totalQuestions
