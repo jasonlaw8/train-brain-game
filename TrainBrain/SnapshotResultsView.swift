@@ -19,45 +19,10 @@ struct SnapshotResultsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-
                 sessionLabel
-
-                // Domain bars (reveal 1–4)
                 domainBarsSection
-
-                // Brain Score (reveal 5)
-                if revealed >= 5 {
-                    brainScoreSection
-                        .transition(.scale(scale: 0.85).combined(with: .opacity))
-                }
-
-                // Radar chart
-                if revealed >= 5 {
-                    radarSection
-                        .transition(.opacity)
-                }
-
-                // RCI / change delta (session 3+)
-                if stats.snapshotSessionCount >= 3 && revealed >= 5 {
-                    changeSection
-                }
-
-                // Share + paywall placeholder
-                if revealed >= 5 {
-                    shareButton
-                    if stats.snapshotSessionCount >= 3 {
-                        premiumPreviewBanner
-                    }
-                }
-
-                Button { onDone() } label: {
-                    Text("Continue")
-                        .font(.title3.bold()).foregroundStyle(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(Color.purple, in: RoundedRectangle(cornerRadius: 18))
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 32)
+                revealedContent
+                continueButton
             }
             .padding(.top, 20)
         }
@@ -65,6 +30,34 @@ struct SnapshotResultsView: View {
         .sheet(isPresented: $showShareSheet) {
             if let img = shareImage { ShareSheet(items: [img]) }
         }
+    }
+
+    @ViewBuilder
+    private var revealedContent: some View {
+        if revealed >= 5 {
+            brainScoreSection
+                .transition(.scale(scale: 0.85).combined(with: .opacity))
+            radarSection
+                .transition(.opacity)
+            if stats.snapshotSessionCount >= 3 {
+                changeSection
+            }
+            shareButton
+            if stats.snapshotSessionCount >= 3 {
+                premiumPreviewBanner
+            }
+        }
+    }
+
+    private var continueButton: some View {
+        Button { onDone() } label: {
+            Text("Continue")
+                .font(.title3.bold()).foregroundStyle(.white)
+                .frame(maxWidth: .infinity).padding(.vertical, 16)
+                .background(Color.purple, in: RoundedRectangle(cornerRadius: 18))
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 32)
     }
 
     // MARK: - Session label
