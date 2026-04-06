@@ -79,14 +79,14 @@ struct SettingsView: View {
             // MARK: iCloud Sync
             Section {
                 HStack {
-                    Label("iCloud Sync", systemImage: "icloud.slash")
+                    Label("Sync with iCloud", systemImage: "icloud.fill")
                     Spacer()
-                    Text("Coming Soon").foregroundStyle(.secondary)
+                    Text("On").foregroundStyle(.secondary)
                 }
             } header: {
                 Text("iCloud Sync")
             } footer: {
-                Text("Cross-device sync will be available in a future update.")
+                Text("Your progress, Brain Score, and streaks sync automatically across your devices when iCloud is enabled.")
             }
 
             // MARK: Preferences
