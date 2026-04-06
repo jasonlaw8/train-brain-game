@@ -15,20 +15,18 @@ struct TrainBrainApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if hasOnboarded {
-                ContentView()
-            } else {
-                OnboardingView { hasOnboarded = true }
+            Group {
+                if hasOnboarded {
+                    ContentView()
+                } else {
+                    OnboardingView { hasOnboarded = true }
+                }
             }
-        }
-        .modelContainer(for: [PlayerStats.self, GameSession.self], cloudKitDatabase: .automatic)
-        .task {
-            // Re-schedule notification on every launch (covers reinstall / permission grant)
-            if notificationsEnabled {
+            .task {
+                // Re-schedule notification on every launch (covers reinstall / permission grant)
+                guard notificationsEnabled else { return }
                 let status = await NotificationManager.shared.authorizationStatus()
                 if status == .authorized {
-                    // Streak count not available here without model context; use 0 as safe default.
-                    // The Settings view reschedules with accurate streak when the user visits.
                     NotificationManager.shared.scheduleDailyReminder(
                         hour: notificationHour,
                         minute: notificationMinute,
@@ -37,5 +35,6 @@ struct TrainBrainApp: App {
                 }
             }
         }
+        .modelContainer(for: [PlayerStats.self, GameSession.self])
     }
 }
