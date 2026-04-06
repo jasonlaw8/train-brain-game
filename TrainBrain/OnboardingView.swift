@@ -38,7 +38,7 @@ struct OnboardingView: View {
                 BrainFactSlide(
                     icon: "brain.filled.head.profile", iconColor: .blue,
                     title: "Your Brain Is a Muscle",
-                    body: "Just like physical fitness, cognitive fitness improves with consistent training. Scientists call this neuroplasticity — your brain physically rewires itself with practice.",
+                    message: "Just like physical fitness, cognitive fitness improves with consistent training. Scientists call this neuroplasticity — your brain physically rewires itself with practice.",
                     fact: "People who train their memory for 5 minutes a day show measurable improvement in as little as 2 weeks."
                 ) { withAnimation { currentPage += 1 } }
                     .tag(0)
@@ -46,7 +46,7 @@ struct OnboardingView: View {
                 BrainFactSlide(
                     icon: "chart.line.uptrend.xyaxis", iconColor: .indigo,
                     title: "Track Your Brain Score",
-                    body: "Train Brain measures three core cognitive metrics — Memory, Reflex Speed, and Processing Speed — and gives you a single Brain Score. 100 is average.",
+                    message: "Train Brain measures three core cognitive metrics — Memory, Reflex Speed, and Processing Speed — and gives you a single Brain Score. 100 is average.",
                     fact: "Studies show that tracking progress increases training consistency by up to 40%."
                 ) { withAnimation { currentPage += 1 } }
                     .tag(1)
@@ -54,7 +54,7 @@ struct OnboardingView: View {
                 BrainFactSlide(
                     icon: "flame.fill", iconColor: .red,
                     title: "Consistency Is Everything",
-                    body: "Five minutes a day beats two hours on the weekend. Daily challenges keep your streak alive and your brain in peak condition.",
+                    message: "Five minutes a day beats two hours on the weekend. Daily challenges keep your streak alive and your brain in peak condition.",
                     fact: "Habit research shows a 7-day streak makes you 80% more likely to stick with a new routine long-term."
                 ) { withAnimation { currentPage += 1 } }
                     .tag(2)
@@ -82,7 +82,7 @@ private struct BrainFactSlide: View {
     let icon: String
     let iconColor: Color
     let title: String
-    let body: String
+    let message: String
     let fact: String
     let onNext: () -> Void
 
@@ -99,7 +99,7 @@ private struct BrainFactSlide: View {
                 Text(title)
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-                Text(body)
+                Text(message)
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
