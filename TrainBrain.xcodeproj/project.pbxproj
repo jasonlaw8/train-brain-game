@@ -20,6 +20,10 @@
 		AABB00000000000000000C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001A /* OnboardingView.swift */; };
 		AABB00000000000000000D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001B /* SettingsView.swift */; };
 		AABB00000000000000000E /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001C /* ShareCardView.swift */; };
+		AABB00000000000000000F /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001D /* GameSession.swift */; };
+		AABB000000000000000080 /* MathBlitzGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001E /* MathBlitzGameView.swift */; };
+		AABB000000000000000081 /* TrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001F /* TrainView.swift */; };
+		AABB000000000000000082 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000021 /* ProgressView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +40,10 @@
 		AABB00000000000000001A /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AABB00000000000000001B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AABB00000000000000001C /* ShareCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardView.swift; sourceTree = "<group>"; };
+		AABB00000000000000001D /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
+		AABB00000000000000001E /* MathBlitzGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathBlitzGameView.swift; sourceTree = "<group>"; };
+		AABB00000000000000001F /* TrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainView.swift; sourceTree = "<group>"; };
+		AABB000000000000000021 /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
 		AABB000000000000000016 /* TrainBrain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrainBrain.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -74,6 +82,10 @@
 				AABB00000000000000001A /* OnboardingView.swift */,
 				AABB00000000000000001B /* SettingsView.swift */,
 				AABB00000000000000001C /* ShareCardView.swift */,
+				AABB00000000000000001D /* GameSession.swift */,
+				AABB00000000000000001E /* MathBlitzGameView.swift */,
+				AABB00000000000000001F /* TrainView.swift */,
+				AABB000000000000000021 /* ProgressView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -167,6 +179,10 @@
 				AABB00000000000000000C /* OnboardingView.swift in Sources */,
 				AABB00000000000000000D /* SettingsView.swift in Sources */,
 				AABB00000000000000000E /* ShareCardView.swift in Sources */,
+				AABB00000000000000000F /* GameSession.swift in Sources */,
+				AABB000000000000000080 /* MathBlitzGameView.swift in Sources */,
+				AABB000000000000000081 /* TrainView.swift in Sources */,
+				AABB000000000000000082 /* ProgressView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
