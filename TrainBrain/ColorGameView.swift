@@ -31,6 +31,8 @@ class ColorGameViewModel: ObservableObject {
     @Published var gameState: GameState = .idle
     @Published var lastCorrect: Bool? = nil
     @Published var showNewBest = false
+    @Published var unlockedAchievement: Achievement? = nil
+    @Published var leveledUpTo: Int? = nil
 
     private var correctOption: ColorOption?
     private var timer: Timer?
@@ -176,18 +178,46 @@ struct ColorGameView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(10)
             }
+            if let level = vm.leveledUpTo {
+                LevelUpBanner(level: level)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(11)
+            }
+            if let achievement = vm.unlockedAchievement {
+                AchievementUnlockedBanner(achievement: achievement)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(12)
+            }
         }
         .animation(.spring(response: 0.4), value: vm.showNewBest)
+        .animation(.spring(response: 0.4), value: vm.leveledUpTo)
+        .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Color")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             vm.onGameOver = { score, streak in
                 let isNewBest = score > stats.colorBestScore
-                stats.recordColorGame(score: score, streak: streak)
+                let leveledUp = stats.recordColorGame(score: score, streak: streak)
+                let newAchievements = checkAndUnlock(stats: stats)
+
                 if isNewBest && score > 0 {
                     vm.showNewBest = true
                     Haptics.success()
                     Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
+                }
+                if leveledUp {
+                    vm.leveledUpTo = stats.playerLevel
+                    Task { try? await Task.sleep(for: .seconds(2.5)); vm.leveledUpTo = nil }
+                }
+                if let first = newAchievements.first {
+                    let delay = (isNewBest || leveledUp) ? 2.8 : 0.3
+                    Task {
+                        try? await Task.sleep(for: .seconds(delay))
+                        vm.unlockedAchievement = first
+                        Haptics.success()
+                        try? await Task.sleep(for: .seconds(3))
+                        vm.unlockedAchievement = nil
+                    }
                 }
             }
         }

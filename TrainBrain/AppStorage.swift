@@ -15,7 +15,7 @@ final class PlayerStats {
     var colorBestStreak: Int = 0
     var colorPlayCount: Int = 0
 
-    // Reflex (stored as ms * 1000 to avoid Float precision issues in SwiftData)
+    // Reflex
     var reflexBestTimeMs: Double = 0   // 0 = never played
     var reflexPlayCount: Int = 0
 
@@ -25,70 +25,83 @@ final class PlayerStats {
     var dailyStreakCount: Int = 0
     var lastStreakDate: Date? = nil
 
+    // Achievements — comma-separated IDs of unlocked achievements
+    var unlockedAchievementIDs: String = ""
+
     init() {}
 
     // MARK: - Derived
 
-    var playerLevel: Int {
-        // Every 100 XP = 1 level, capped at 50
-        min(50, totalXP / 100 + 1)
+    var playerLevel: Int { min(50, totalXP / 100 + 1) }
+    var xpProgressInCurrentLevel: Int { totalXP % 100 }
+
+    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount }
+
+    // MARK: - Achievement helpers
+
+    func isAchievementUnlocked(_ id: String) -> Bool {
+        unlockedAchievementIDs.split(separator: ",").map(String.init).contains(id)
     }
 
-    var xpProgressInCurrentLevel: Int {
-        totalXP % 100
+    /// Unlocks an achievement. Returns true if it was newly unlocked.
+    @discardableResult
+    func unlockAchievement(_ id: String) -> Bool {
+        guard !isAchievementUnlocked(id) else { return false }
+        unlockedAchievementIDs = unlockedAchievementIDs.isEmpty ? id : "\(unlockedAchievementIDs),\(id)"
+        return true
     }
 
-    // MARK: - Update helpers
+    var unlockedCount: Int {
+        unlockedAchievementIDs.isEmpty ? 0 : unlockedAchievementIDs.split(separator: ",").count
+    }
 
-    func recordMemoryGame(score: Int, level: Int) {
+    // MARK: - Record helpers (return whether player leveled up)
+
+    @discardableResult
+    func recordMemoryGame(score: Int, level: Int) -> Bool {
         if score > memoryBestScore { memoryBestScore = score }
         if level > memoryBestLevel { memoryBestLevel = level }
         memoryPlayCount += 1
-        addXP(score / 5)
-        touchStreak()
+        return addXP(score / 5)
     }
 
-    func recordColorGame(score: Int, streak: Int) {
+    @discardableResult
+    func recordColorGame(score: Int, streak: Int) -> Bool {
         if score > colorBestScore { colorBestScore = score }
         if streak > colorBestStreak { colorBestStreak = streak }
         colorPlayCount += 1
-        addXP(score / 5)
-        touchStreak()
+        return addXP(score / 5)
     }
 
-    func recordReflexGame(bestMs: Double) {
+    @discardableResult
+    func recordReflexGame(bestMs: Double) -> Bool {
         if reflexBestTimeMs == 0 || bestMs < reflexBestTimeMs {
             reflexBestTimeMs = bestMs
         }
         reflexPlayCount += 1
-        // Faster = more XP (sub-200ms earns 40, sub-400ms earns 20, else 10)
         let xp = bestMs < 200 ? 40 : bestMs < 400 ? 20 : 10
-        addXP(xp)
-        touchStreak()
+        return addXP(xp)
     }
 
-    private func addXP(_ amount: Int) {
+    /// Returns true if this XP addition caused a level-up.
+    @discardableResult
+    private func addXP(_ amount: Int) -> Bool {
+        let before = playerLevel
         totalXP += max(0, amount)
         lastPlayedDate = Date()
+        touchStreak()
+        return playerLevel > before
     }
 
     private func touchStreak() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-
         if let last = lastStreakDate {
             let lastDay = calendar.startOfDay(for: last)
             let diff = calendar.dateComponents([.day], from: lastDay, to: today).day ?? 0
-            if diff == 0 {
-                // Already played today — no change
-            } else if diff == 1 {
-                dailyStreakCount += 1
-                lastStreakDate = Date()
-            } else {
-                // Missed a day — reset
-                dailyStreakCount = 1
-                lastStreakDate = Date()
-            }
+            if diff == 0 { /* already played today */ }
+            else if diff == 1 { dailyStreakCount += 1; lastStreakDate = Date() }
+            else { dailyStreakCount = 1; lastStreakDate = Date() }
         } else {
             dailyStreakCount = 1
             lastStreakDate = Date()

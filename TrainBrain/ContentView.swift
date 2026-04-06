@@ -5,6 +5,9 @@ struct ContentView: View {
     @Query private var statsQuery: [PlayerStats]
     @Environment(\.modelContext) private var modelContext
 
+    @State private var prevLevel = 1
+    @State private var showLevelUp = false
+
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
         let s = PlayerStats()
@@ -15,12 +18,8 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AnimatedGradientBackground()
-                    .ignoresSafeArea()
-
-                // Soft scrim so text stays readable
-                Color(.systemBackground).opacity(0.82)
-                    .ignoresSafeArea()
+                AnimatedGradientBackground().ignoresSafeArea()
+                Color(.systemBackground).opacity(0.82).ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 0) {
@@ -93,8 +92,41 @@ struct ContentView: View {
                         }
                     }
                 }
+
+                // Level-up banner
+                if showLevelUp {
+                    LevelUpBanner(level: stats.playerLevel)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(10)
+                }
             }
+            .animation(.spring(response: 0.4), value: showLevelUp)
             .navigationBarHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: AchievementsView()) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trophy.fill")
+                                .foregroundStyle(.yellow)
+                            if stats.unlockedCount > 0 {
+                                Text("\(stats.unlockedCount)/\(allAchievements.count)")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .onAppear { prevLevel = stats.playerLevel }
+            .onChange(of: stats.playerLevel) { _, newLevel in
+                guard newLevel > prevLevel else { return }
+                prevLevel = newLevel
+                showLevelUp = true
+                Task {
+                    try? await Task.sleep(for: .seconds(2.5))
+                    showLevelUp = false
+                }
+            }
         }
     }
 
