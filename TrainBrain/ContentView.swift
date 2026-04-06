@@ -49,6 +49,13 @@ struct ContentView: View {
                         .padding(.top, 52)
                         .padding(.bottom, 36)
 
+                        // Daily progress
+                        if stats.totalPlayCount > 0 {
+                            dailyProgressStrip
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 16)
+                        }
+
                         // Game cards
                         VStack(spacing: 16) {
                             NavigationLink(destination: MemoryGameView()) {
@@ -58,7 +65,8 @@ struct ContentView: View {
                                     icon: "square.grid.3x3.fill",
                                     color: .blue,
                                     bestScore: stats.memoryBestScore > 0
-                                        ? "Best: \(stats.memoryBestScore) pts" : nil
+                                        ? "Best: \(stats.memoryBestScore) pts" : nil,
+                                    playedToday: stats.playedMemoryToday
                                 )
                             }
                             NavigationLink(destination: ColorGameView()) {
@@ -68,7 +76,8 @@ struct ContentView: View {
                                     icon: "paintpalette.fill",
                                     color: .purple,
                                     bestScore: stats.colorBestScore > 0
-                                        ? "Best: \(stats.colorBestScore) pts" : nil
+                                        ? "Best: \(stats.colorBestScore) pts" : nil,
+                                    playedToday: stats.playedColorToday
                                 )
                             }
                             NavigationLink(destination: ReflexGameView()) {
@@ -78,7 +87,8 @@ struct ContentView: View {
                                     icon: "bolt.fill",
                                     color: .orange,
                                     bestScore: stats.reflexBestTimeMs > 0
-                                        ? String(format: "Best: %.0f ms", stats.reflexBestTimeMs) : nil
+                                        ? String(format: "Best: %.0f ms", stats.reflexBestTimeMs) : nil,
+                                    playedToday: stats.playedReflexToday
                                 )
                             }
                         }
@@ -103,6 +113,12 @@ struct ContentView: View {
             .animation(.spring(response: 0.4), value: showLevelUp)
             .navigationBarHidden(true)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink(destination: SettingsView()) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: AchievementsView()) {
                         HStack(spacing: 4) {
@@ -128,6 +144,28 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    var dailyProgressStrip: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "calendar")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Text("Today")
+                .font(.subheadline.bold())
+            Spacer()
+            HStack(spacing: 8) {
+                DailyDot(icon: "square.grid.3x3.fill", color: .blue,   done: stats.playedMemoryToday)
+                DailyDot(icon: "paintpalette.fill",    color: .purple, done: stats.playedColorToday)
+                DailyDot(icon: "bolt.fill",            color: .orange, done: stats.playedReflexToday)
+            }
+            Text("\(stats.dailyGamesCompleted)/3")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemBackground).opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
     }
 
     var levelStrip: some View {
@@ -163,15 +201,25 @@ struct GameCard: View {
     let icon: String
     let color: Color
     var bestScore: String? = nil
+    var playedToday: Bool = false
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(color)
-                .frame(width: 60, height: 60)
-                .background(color.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 60, height: 60)
+                    .background(color.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                if playedToday {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.green)
+                        .background(Circle().fill(Color(.systemBackground)).padding(2))
+                        .offset(x: 6, y: -6)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -199,6 +247,18 @@ struct GameCard: View {
                 .fill(Color(.secondarySystemBackground).opacity(0.92))
         )
         .buttonStyle(.plain)
+    }
+}
+
+struct DailyDot: View {
+    let icon: String
+    let color: Color
+    let done: Bool
+
+    var body: some View {
+        Image(systemName: done ? "checkmark.circle.fill" : icon)
+            .font(.system(size: 18))
+            .foregroundStyle(done ? .green : color.opacity(0.4))
     }
 }
 

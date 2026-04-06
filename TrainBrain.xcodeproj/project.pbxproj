@@ -17,6 +17,9 @@
 		AABB000000000000000008 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000018 /* Haptics.swift */; };
 		AABB000000000000000009 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000019 /* Theme.swift */; };
 		AABB00000000000000000A /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000000B /* Achievements.swift */; };
+		AABB00000000000000000C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001A /* OnboardingView.swift */; };
+		AABB00000000000000000D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001B /* SettingsView.swift */; };
+		AABB00000000000000000E /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB00000000000000001C /* ShareCardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +33,9 @@
 		AABB000000000000000018 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		AABB000000000000000019 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AABB00000000000000000B /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
+		AABB00000000000000001A /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		AABB00000000000000001B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AABB00000000000000001C /* ShareCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardView.swift; sourceTree = "<group>"; };
 		AABB000000000000000016 /* TrainBrain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrainBrain.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -65,6 +71,9 @@
 				AABB000000000000000018 /* Haptics.swift */,
 				AABB000000000000000019 /* Theme.swift */,
 				AABB00000000000000000B /* Achievements.swift */,
+				AABB00000000000000001A /* OnboardingView.swift */,
+				AABB00000000000000001B /* SettingsView.swift */,
+				AABB00000000000000001C /* ShareCardView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -155,6 +164,9 @@
 				AABB000000000000000008 /* Haptics.swift in Sources */,
 				AABB000000000000000009 /* Theme.swift in Sources */,
 				AABB00000000000000000A /* Achievements.swift in Sources */,
+				AABB00000000000000000C /* OnboardingView.swift in Sources */,
+				AABB00000000000000000D /* SettingsView.swift in Sources */,
+				AABB00000000000000000E /* ShareCardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

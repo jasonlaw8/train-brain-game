@@ -9,15 +9,18 @@ final class PlayerStats {
     var memoryBestScore: Int = 0
     var memoryBestLevel: Int = 0
     var memoryPlayCount: Int = 0
+    var memoryLastPlayedDate: Date? = nil
 
     // Color
     var colorBestScore: Int = 0
     var colorBestStreak: Int = 0
     var colorPlayCount: Int = 0
+    var colorLastPlayedDate: Date? = nil
 
     // Reflex
     var reflexBestTimeMs: Double = 0   // 0 = never played
     var reflexPlayCount: Int = 0
+    var reflexLastPlayedDate: Date? = nil
 
     // Cross-game engagement
     var totalXP: Int = 0
@@ -34,8 +37,19 @@ final class PlayerStats {
 
     var playerLevel: Int { min(50, totalXP / 100 + 1) }
     var xpProgressInCurrentLevel: Int { totalXP % 100 }
-
     var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount }
+
+    // MARK: - Daily tracking
+
+    var playedMemoryToday: Bool { isToday(memoryLastPlayedDate) }
+    var playedColorToday:  Bool { isToday(colorLastPlayedDate) }
+    var playedReflexToday: Bool { isToday(reflexLastPlayedDate) }
+    var dailyGamesCompleted: Int { [playedMemoryToday, playedColorToday, playedReflexToday].filter { $0 }.count }
+
+    private func isToday(_ date: Date?) -> Bool {
+        guard let date else { return false }
+        return Calendar.current.isDateInToday(date)
+    }
 
     // MARK: - Achievement helpers
 
@@ -43,7 +57,6 @@ final class PlayerStats {
         unlockedAchievementIDs.split(separator: ",").map(String.init).contains(id)
     }
 
-    /// Unlocks an achievement. Returns true if it was newly unlocked.
     @discardableResult
     func unlockAchievement(_ id: String) -> Bool {
         guard !isAchievementUnlocked(id) else { return false }
@@ -62,6 +75,7 @@ final class PlayerStats {
         if score > memoryBestScore { memoryBestScore = score }
         if level > memoryBestLevel { memoryBestLevel = level }
         memoryPlayCount += 1
+        memoryLastPlayedDate = Date()
         return addXP(score / 5)
     }
 
@@ -70,6 +84,7 @@ final class PlayerStats {
         if score > colorBestScore { colorBestScore = score }
         if streak > colorBestStreak { colorBestStreak = streak }
         colorPlayCount += 1
+        colorLastPlayedDate = Date()
         return addXP(score / 5)
     }
 
@@ -79,11 +94,11 @@ final class PlayerStats {
             reflexBestTimeMs = bestMs
         }
         reflexPlayCount += 1
+        reflexLastPlayedDate = Date()
         let xp = bestMs < 200 ? 40 : bestMs < 400 ? 20 : 10
         return addXP(xp)
     }
 
-    /// Returns true if this XP addition caused a level-up.
     @discardableResult
     private func addXP(_ amount: Int) -> Bool {
         let before = playerLevel

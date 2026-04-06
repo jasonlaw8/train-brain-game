@@ -360,6 +360,13 @@ struct ColorGameView: View {
             DifficultyPicker(difficulty: $difficulty)
                 .padding(.horizontal)
                 .padding(.bottom, 12)
+            ShareResultButton(
+                gameName: "Color", gameIcon: "paintpalette.fill", gameColor: .purple,
+                primaryValue: "\(vm.score)", primaryLabel: "pts",
+                secondaryLine: "\(vm.accuracy)% accuracy"
+            )
+            .padding(.horizontal)
+            .padding(.bottom, 8)
             startButton(label: "Play Again", color: .purple)
         }
     }

@@ -283,6 +283,16 @@ struct ReflexGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
+            if vm.gameState == .finished, let avg = vm.averageTime {
+                ShareResultButton(
+                    gameName: "Reflex", gameIcon: "bolt.fill", gameColor: .orange,
+                    primaryValue: String(format: "%.0f", avg), primaryLabel: "ms",
+                    secondaryLine: vm.bestTime.map { String(format: "Best %.0f ms", $0) }
+                )
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+
             Button { vm.startGame(difficulty: difficulty) } label: {
                 Text(vm.gameState == .idle ? "Start" : "Play Again")
                     .font(.title3.bold())

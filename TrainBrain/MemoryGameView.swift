@@ -314,6 +314,14 @@ struct MemoryGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
+            ShareResultButton(
+                gameName: "Memory", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
+                primaryValue: "\(vm.finalScore)", primaryLabel: "pts",
+                secondaryLine: "Level \(vm.finalLevel)"
+            )
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+
             Button {
                 vm.startGame(difficulty: difficulty)
             } label: {
