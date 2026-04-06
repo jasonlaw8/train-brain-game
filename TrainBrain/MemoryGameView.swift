@@ -20,6 +20,8 @@ class MemoryGameViewModel: ObservableObject {
     @Published var showNewBest = false
     @Published var finalScore = 0
     @Published var finalLevel = 0
+    @Published var unlockedAchievement: Achievement? = nil
+    @Published var leveledUpTo: Int? = nil
 
     enum GameState { case idle, playing, input, success, failure, gameOver }
 
@@ -136,8 +138,20 @@ struct MemoryGameView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(10)
             }
+            if let level = vm.leveledUpTo {
+                LevelUpBanner(level: level)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(11)
+            }
+            if let achievement = vm.unlockedAchievement {
+                AchievementUnlockedBanner(achievement: achievement)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(12)
+            }
         }
         .animation(.spring(response: 0.4), value: vm.showNewBest)
+        .animation(.spring(response: 0.4), value: vm.leveledUpTo)
+        .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Memory")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -151,11 +165,26 @@ struct MemoryGameView: View {
                     difficulty: difficulty.rawValue
                 )
                 modelContext.insert(session)
-                stats.recordMemoryGame(score: score, level: level)
+                let leveledUp = stats.recordMemoryGame(score: score, level: level)
+                let newAchievements = checkAndUnlock(stats: stats)
                 if isNewBest && score > 0 {
                     vm.showNewBest = true
                     Haptics.success()
                     Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
+                }
+                if leveledUp {
+                    vm.leveledUpTo = stats.playerLevel
+                    Task { try? await Task.sleep(for: .seconds(2.5)); vm.leveledUpTo = nil }
+                }
+                if let first = newAchievements.first {
+                    let delay = (isNewBest || leveledUp) ? 2.8 : 0.3
+                    Task {
+                        try? await Task.sleep(for: .seconds(delay))
+                        vm.unlockedAchievement = first
+                        Haptics.success()
+                        try? await Task.sleep(for: .seconds(3))
+                        vm.unlockedAchievement = nil
+                    }
                 }
             }
         }
@@ -299,6 +328,14 @@ struct MemoryGameView: View {
             DifficultyPicker(difficulty: $difficulty)
                 .padding(.horizontal)
                 .padding(.bottom, 12)
+
+            ShareResultButton(
+                gameName: "Memory", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
+                primaryValue: "\(vm.finalScore)", primaryLabel: "pts",
+                secondaryLine: "Level \(vm.finalLevel)"
+            )
+            .padding(.horizontal)
+            .padding(.bottom, 8)
 
             Button {
                 vm.startGame(difficulty: difficulty)

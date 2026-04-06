@@ -37,6 +37,7 @@ struct TrainView: View {
                                     color: .blue,
                                     bestScore: stats.memoryBestLevel > 0
                                         ? "Best level: \(stats.memoryBestLevel)" : nil,
+                                    playedToday: stats.playedMemoryToday,
                                     brainScore: stats.memoryBrainScore > 0 ? stats.memoryBrainScore : nil
                                 )
                             }
@@ -47,7 +48,8 @@ struct TrainView: View {
                                     icon: "paintpalette.fill",
                                     color: .purple,
                                     bestScore: stats.colorBestScore > 0
-                                        ? "Best: \(stats.colorBestScore) pts" : nil
+                                        ? "Best: \(stats.colorBestScore) pts" : nil,
+                                    playedToday: stats.playedColorToday
                                 )
                             }
                         }
@@ -68,6 +70,7 @@ struct TrainView: View {
                                     color: .green,
                                     bestScore: stats.speedBestScore > 0
                                         ? "Best: \(stats.speedBestScore) correct" : nil,
+                                    playedToday: stats.dailyChallengeSpeedDone,
                                     brainScore: stats.speedBrainScore > 0 ? stats.speedBrainScore : nil
                                 )
                             }
@@ -89,6 +92,7 @@ struct TrainView: View {
                                     color: .orange,
                                     bestScore: stats.reflexBestTimeMs > 0
                                         ? String(format: "Best: %.0f ms", stats.reflexBestTimeMs) : nil,
+                                    playedToday: stats.playedReflexToday,
                                     brainScore: stats.reflexBrainScore > 0 ? stats.reflexBrainScore : nil
                                 )
                             }

@@ -1,168 +1,105 @@
 import SwiftUI
-import SwiftData
 
-// MARK: - Onboarding Flow
-// Shown once on first launch. Swipeable slides with brain facts + an optional initial assessment.
+// MARK: - OnboardingView
+// Brain-facts intro slides (our content) + animated game-demo pages (polished interactive previews).
+// Uses onComplete callback; onboarding state is tracked via @AppStorage("hasOnboarded") in TrainBrainApp.
 
 struct OnboardingView: View {
-    @Binding var isComplete: Bool
-    @State private var page: Int = 0
-    @State private var showAssessment = false
+    var onComplete: () -> Void
 
-    private let slides: [OnboardingSlide] = [
-        OnboardingSlide(
-            icon: "brain.filled.head.profile",
-            iconColor: .blue,
-            title: "Your Brain Is a Muscle",
-            body: "Just like physical fitness, cognitive fitness improves with consistent training. Scientists call this neuroplasticity — your brain physically rewires itself with practice.",
-            fact: "People who train their memory for 5 minutes a day show measurable improvement in as little as 2 weeks."
-        ),
-        OnboardingSlide(
-            icon: "chart.line.uptrend.xyaxis",
-            iconColor: .indigo,
-            title: "Track Your Brain Score",
-            body: "Train Brain measures three core cognitive metrics — Memory, Reflex Speed, and Processing Speed — and gives you a single Brain Score, normalized so 100 is the average person.",
-            fact: "Studies show that tracking progress increases training consistency by up to 40%."
-        ),
-        OnboardingSlide(
-            icon: "bolt.fill",
-            iconColor: .orange,
-            title: "Reflexes Slow With Age",
-            body: "Reaction time peaks around age 24 and gradually slows. But research shows regular reflex training can reverse this trend — athletes in their 40s often outperform sedentary 20-year-olds.",
-            fact: "Formula 1 drivers have average reaction times of ~200ms — far faster than the 250ms average human."
-        ),
-        OnboardingSlide(
-            icon: "function",
-            iconColor: .green,
-            title: "Processing Speed Is Trainable",
-            body: "How quickly you can solve a simple problem under pressure is a strong predictor of overall cognitive performance. Regular mental arithmetic keeps this skill sharp at any age.",
-            fact: "Chess grandmasters process complex positions up to 3× faster than beginners — purely from training."
-        ),
-        OnboardingSlide(
-            icon: "flame.fill",
-            iconColor: .red,
-            title: "Consistency Is Everything",
-            body: "Five minutes a day beats two hours on the weekend. Daily challenges keep your streak alive and your brain in peak condition. Missing just one day resets your momentum.",
-            fact: "Habit research shows a 7-day streak makes you 80% more likely to stick with a new routine long-term."
-        ),
-        OnboardingSlide(
-            icon: "star.fill",
-            iconColor: .yellow,
-            title: "Ready to Begin?",
-            body: "Take a quick Brain Assessment to establish your baseline score — or dive straight into training. Either way, come back daily to watch your Brain Score climb.",
-            fact: nil,
-            isLast: true
-        ),
-    ]
+    @State private var currentPage = 0
+
+    // Pages: 0-2 = brain facts (ours), 3-5 = animated game demos (theirs)
+    private let totalPages = 6
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             AnimatedGradientBackground().ignoresSafeArea()
             Color(.systemBackground).opacity(0.88).ignoresSafeArea()
 
-            if showAssessment {
-                AssessmentIntroView(isOnboardingComplete: $isComplete)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else {
-                VStack(spacing: 0) {
-                    // Slides
-                    TabView(selection: $page) {
-                        ForEach(slides.indices, id: \.self) { i in
-                            slideView(slides[i]).tag(i)
-                        }
+            // Skip button (not on last page)
+            if currentPage < totalPages - 1 {
+                HStack {
+                    Spacer()
+                    Button("Skip") {
+                        withAnimation(.easeInOut(duration: 0.35)) { onComplete() }
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .animation(.easeInOut(duration: 0.35), value: page)
-
-                    // Dots + buttons
-                    VStack(spacing: 20) {
-                        // Progress dots
-                        HStack(spacing: 8) {
-                            ForEach(slides.indices, id: \.self) { i in
-                                Capsule()
-                                    .fill(i == page ? Color.blue : Color(.systemGray4))
-                                    .frame(width: i == page ? 20 : 8, height: 8)
-                                    .animation(.spring(response: 0.3), value: page)
-                            }
-                        }
-
-                        if slides[page].isLast {
-                            // Final page: two options
-                            VStack(spacing: 12) {
-                                Button {
-                                    withAnimation { showAssessment = true }
-                                } label: {
-                                    Text("Take Brain Assessment")
-                                        .font(.title3.bold())
-                                        .foregroundStyle(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 16)
-                                        .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
-                                }
-
-                                Button {
-                                    isComplete = true
-                                } label: {
-                                    Text("Skip — Go to Training")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        } else {
-                            // Navigation buttons
-                            HStack(spacing: 16) {
-                                if page > 0 {
-                                    Button {
-                                        withAnimation { page -= 1 }
-                                    } label: {
-                                        Image(systemName: "chevron.left")
-                                            .font(.title3.bold())
-                                            .foregroundStyle(.blue)
-                                            .frame(width: 52, height: 52)
-                                            .background(Color(.secondarySystemBackground),
-                                                        in: Circle())
-                                    }
-                                }
-                                Spacer()
-                                Button {
-                                    withAnimation { page += 1 }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Text("Next")
-                                            .font(.title3.bold())
-                                        Image(systemName: "chevron.right")
-                                    }
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 32)
-                                    .padding(.vertical, 16)
-                                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.secondary)
+                    .padding(.trailing, 24)
+                    .padding(.top, 56)
                 }
+                .transition(.opacity)
+                .zIndex(1)
             }
-        }
-        .animation(.easeInOut(duration: 0.3), value: showAssessment)
-    }
 
-    func slideView(_ slide: OnboardingSlide) -> some View {
+            TabView(selection: $currentPage) {
+                // Brain-facts slides
+                BrainFactSlide(
+                    icon: "brain.filled.head.profile", iconColor: .blue,
+                    title: "Your Brain Is a Muscle",
+                    body: "Just like physical fitness, cognitive fitness improves with consistent training. Scientists call this neuroplasticity — your brain physically rewires itself with practice.",
+                    fact: "People who train their memory for 5 minutes a day show measurable improvement in as little as 2 weeks."
+                ) { withAnimation { currentPage += 1 } }
+                    .tag(0)
+
+                BrainFactSlide(
+                    icon: "chart.line.uptrend.xyaxis", iconColor: .indigo,
+                    title: "Track Your Brain Score",
+                    body: "Train Brain measures three core cognitive metrics — Memory, Reflex Speed, and Processing Speed — and gives you a single Brain Score. 100 is average.",
+                    fact: "Studies show that tracking progress increases training consistency by up to 40%."
+                ) { withAnimation { currentPage += 1 } }
+                    .tag(1)
+
+                BrainFactSlide(
+                    icon: "flame.fill", iconColor: .red,
+                    title: "Consistency Is Everything",
+                    body: "Five minutes a day beats two hours on the weekend. Daily challenges keep your streak alive and your brain in peak condition.",
+                    fact: "Habit research shows a 7-day streak makes you 80% more likely to stick with a new routine long-term."
+                ) { withAnimation { currentPage += 1 } }
+                    .tag(2)
+
+                // Animated game-demo pages
+                MemoryOnboardingPage()
+                    .tag(3)
+
+                ColorOnboardingPage()
+                    .tag(4)
+
+                ReflexOnboardingPage(onComplete: onComplete)
+                    .tag(5)
+            }
+            .tabViewStyle(.page)
+            .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .animation(.easeInOut(duration: 0.35), value: currentPage)
+        }
+    }
+}
+
+// MARK: - Brain Fact Slide (our content)
+
+private struct BrainFactSlide: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let body: String
+    let fact: String
+    let onNext: () -> Void
+
+    var body: some View {
         VStack(spacing: 28) {
             Spacer()
 
-            Image(systemName: slide.icon)
+            Image(systemName: icon)
                 .font(.system(size: 72))
-                .foregroundStyle(slide.iconColor)
+                .foregroundStyle(iconColor)
                 .symbolEffect(.pulse)
 
             VStack(spacing: 14) {
-                Text(slide.title)
+                Text(title)
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-
-                Text(slide.body)
+                Text(body)
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -170,186 +107,252 @@ struct OnboardingView: View {
                     .padding(.horizontal, 8)
             }
 
-            if let fact = slide.fact {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.yellow)
-                        .font(.footnote)
-                        .padding(.top, 2)
-                    Text(fact)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .italic()
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground).opacity(0.9),
-                            in: RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 8)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundStyle(.yellow)
+                    .font(.footnote)
+                    .padding(.top, 2)
+                Text(fact)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .italic()
             }
+            .padding()
+            .background(Color(.secondarySystemBackground).opacity(0.9),
+                        in: RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal, 8)
 
             Spacer()
+            Spacer()
+
+            Button(action: onNext) {
+                HStack(spacing: 6) {
+                    Text("Next")
+                    Image(systemName: "chevron.right")
+                }
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 36)
+                .padding(.vertical, 16)
+                .background(iconColor, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 48)
         }
         .padding(.horizontal, 24)
     }
 }
 
-// MARK: - Slide model
+// MARK: - Page: Memory (animated tile demo)
 
-struct OnboardingSlide {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let body: String
-    let fact: String?
-    var isLast: Bool = false
-}
+private struct MemoryOnboardingPage: View {
+    @State private var iconBounce = false
+    @State private var litTiles: Set<Int> = []
 
-// MARK: - Assessment Intro
-
-struct AssessmentIntroView: View {
-    @Binding var isOnboardingComplete: Bool
-    @State private var step: AssessmentStep = .intro
-
-    enum AssessmentStep { case intro, memory, reflex, speed, results }
-
-    // Collect raw scores during assessment
-    @State private var memoryLevel: Int = 0
-    @State private var reflexAvgMs: Double = 0
-    @State private var speedCorrect: Int = 0
+    private let tileColors: [Color] = [
+        .blue, .red, .green, .purple, .orange, .cyan, .pink, .yellow, .teal
+    ]
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch step {
-                case .intro:
-                    assessmentIntro
-                case .memory:
-                    MemoryGameView()
-                        .onDisappear {
-                            // After memory game, move to reflex
-                            if step == .memory { step = .reflex }
-                        }
-                case .reflex:
-                    ReflexGameView()
-                        .onDisappear {
-                            if step == .reflex { step = .speed }
-                        }
-                case .speed:
-                    MathBlitzGameView()
-                        .onDisappear {
-                            if step == .speed { step = .results }
-                        }
-                case .results:
-                    assessmentResults
-                }
-            }
-            .navigationTitle(step == .intro ? "Brain Assessment" : "")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if step == .intro {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Skip") { isOnboardingComplete = true }
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-    }
-
-    var assessmentIntro: some View {
         VStack(spacing: 28) {
             Spacer()
 
-            Image(systemName: "brain")
-                .font(.system(size: 72))
+            Image(systemName: "square.grid.3x3.fill")
+                .font(.system(size: 64))
                 .foregroundStyle(.blue)
-                .symbolEffect(.pulse)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle(); startTileAnimation() }
 
-            VStack(spacing: 14) {
-                Text("Your Baseline Assessment")
+            VStack(spacing: 8) {
+                Text("Memory")
                     .font(.largeTitle.bold())
-                    .multilineTextAlignment(.center)
-
-                Text("We'll run three quick tests — Memory, Reflex, and Processing Speed — to calculate your starting Brain Score.\n\nEach test takes about 1–2 minutes.")
-                    .font(.body)
+                Text("Watch the sequence,\nthen tap it back")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal)
             }
 
-            VStack(spacing: 10) {
-                assessmentStep("1", label: "Simon Says", subtitle: "Memory", color: .blue,   icon: "square.grid.3x3.fill")
-                assessmentStep("2", label: "Reaction Time", subtitle: "Reflex", color: .orange, icon: "bolt.fill")
-                assessmentStep("3", label: "Math Blitz", subtitle: "Processing Speed", color: .green, icon: "function")
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.fixed(72), spacing: 12), count: 3),
+                spacing: 12
+            ) {
+                ForEach(0..<9) { i in
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(tileColors[i].opacity(litTiles.contains(i) ? 0.85 : 0.20))
+                        .frame(width: 72, height: 72)
+                        .scaleEffect(litTiles.contains(i) ? 1.08 : 1.0)
+                        .shadow(color: tileColors[i].opacity(litTiles.contains(i) ? 0.45 : 0),
+                                radius: 8, x: 0, y: 4)
+                        .animation(.easeInOut(duration: 0.25), value: litTiles.contains(i))
+                }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 32)
+            .padding(20)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.secondarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 32)
 
             Spacer()
-
-            Button { step = .memory } label: {
-                Text("Start Assessment")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 36)
+            Spacer()
         }
+        .padding(.horizontal, 20)
     }
 
-    func assessmentStep(_ number: String, label: String, subtitle: String, color: Color, icon: String) -> some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(color.opacity(0.15)).frame(width: 44, height: 44)
-                Text(number).font(.title3.bold()).foregroundStyle(color)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.subheadline.bold())
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: icon).foregroundStyle(color)
+    private func startTileAnimation() {
+        let sequence = (0..<9).shuffled()
+        for (step, tile) in sequence.enumerated() {
+            let onDelay  = Double(step) * 0.55
+            let offDelay = onDelay + 0.38
+            DispatchQueue.main.asyncAfter(deadline: .now() + onDelay)  { litTiles.insert(tile) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + offDelay) { litTiles.remove(tile) }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
-    }
-
-    var assessmentResults: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.green)
-
-            Text("Assessment Complete!")
-                .font(.largeTitle.bold())
-
-            Text("Your baseline Brain Score has been recorded. Come back daily to watch it improve.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            Spacer()
-
-            Button { isOnboardingComplete = true } label: {
-                Text("Start Training")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 36)
-        }
+        let restart = Double(sequence.count) * 0.55 + 0.5
+        DispatchQueue.main.asyncAfter(deadline: .now() + restart) { startTileAnimation() }
     }
 }
 
+// MARK: - Page: Color / Stroop demo
+
+private struct ColorOnboardingPage: View {
+    @State private var iconBounce = false
+    @State private var selectedColor: Color? = nil
+    @State private var feedbackScale: CGFloat = 1.0
+
+    private let colorButtons: [(label: String, color: Color)] = [
+        ("Red", .red), ("Blue", .blue), ("Green", .green), ("Purple", .purple)
+    ]
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "paintpalette.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.purple)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle() }
+
+            VStack(spacing: 8) {
+                Text("Color")
+                    .font(.largeTitle.bold())
+                Text("Tap the COLOR — not what it says")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 20) {
+                Text("BLUE")
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.red)
+                    .scaleEffect(feedbackScale)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.5), value: feedbackScale)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(colorButtons, id: \.label) { item in
+                        Button {
+                            selectedColor = item.color
+                            withAnimation { feedbackScale = 1.18 }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                withAnimation { feedbackScale = 1.0 }
+                            }
+                        } label: {
+                            Text(item.label)
+                                .font(.callout.bold()).foregroundStyle(.white)
+                                .frame(maxWidth: .infinity).padding(.vertical, 12)
+                                .background(RoundedRectangle(cornerRadius: 12)
+                                    .fill(item.color.opacity(selectedColor == item.color ? 1.0 : 0.75)))
+                                .scaleEffect(selectedColor == item.color ? 1.04 : 1.0)
+                                .animation(.easeInOut(duration: 0.15), value: selectedColor == item.color)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(24)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.secondarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 32)
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Page: Reflex demo + Get Started
+
+private struct ReflexOnboardingPage: View {
+    var onComplete: () -> Void
+
+    @State private var iconBounce = false
+    @State private var circleScale: CGFloat = 1.0
+    @State private var circleGlow = false
+    @State private var tapped = false
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.orange)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle() }
+
+            VStack(spacing: 8) {
+                Text("Reflex")
+                    .font(.largeTitle.bold())
+                Text("Tap the circle\nas fast as you can")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            Button {
+                tapped = true
+                withAnimation(.spring(response: 0.18, dampingFraction: 0.45)) { circleScale = 0.82 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { circleScale = 1.0 }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { tapped = false }
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.orange.opacity(tapped ? 1.0 : 0.85))
+                        .frame(width: 120, height: 120)
+                        .shadow(color: Color.orange.opacity(circleGlow ? 0.6 : 0.25),
+                                radius: circleGlow ? 22 : 10)
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .scaleEffect(circleScale)
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, 8)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    circleGlow.toggle()
+                }
+            }
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.35)) { onComplete() }
+            } label: {
+                Text("Get Started")
+                    .font(.title3.bold()).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 16)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.orange))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 32).padding(.top, 4)
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Preview
+
 #Preview {
-    OnboardingView(isComplete: .constant(false))
-        .modelContainer(for: [PlayerStats.self, GameSession.self], inMemory: true)
+    OnboardingView(onComplete: {})
 }

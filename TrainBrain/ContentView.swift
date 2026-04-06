@@ -1,29 +1,9 @@
 import SwiftUI
 import SwiftData
 
+// Root tab container. Onboarding is handled in TrainBrainApp before this view appears.
 struct ContentView: View {
-    @Query private var statsQuery: [PlayerStats]
-    @Environment(\.modelContext) private var modelContext
-
-    private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
-    }
-
     var body: some View {
-        if stats.hasCompletedOnboarding {
-            mainTabs
-        } else {
-            OnboardingView(isComplete: Binding(
-                get: { stats.hasCompletedOnboarding },
-                set: { stats.hasCompletedOnboarding = $0 }
-            ))
-        }
-    }
-
-    var mainTabs: some View {
         TabView {
             HomeView()
                 .tabItem { Label("Home", systemImage: "house.fill") }
@@ -43,6 +23,8 @@ struct HomeView: View {
 
     @State private var milestoneScore: Int? = nil
     @State private var showMilestone = false
+    @State private var prevLevel = 1
+    @State private var showLevelUp = false
 
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
@@ -61,6 +43,7 @@ struct HomeView: View {
                     VStack(spacing: 24) {
                         headerSection
                         brainScoreSection
+                        if stats.totalPlayCount > 0 { dailyProgressStrip }
                         dailyChallengesSection
                         streakAndLevelSection
                     }
@@ -74,10 +57,49 @@ struct HomeView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .zIndex(20)
                 }
+                if showLevelUp {
+                    LevelUpBanner(level: stats.playerLevel)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(19)
+                }
             }
             .navigationBarHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink(destination: SettingsView()) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: AchievementsView()) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trophy.fill")
+                                .foregroundStyle(.yellow)
+                            if stats.unlockedCount > 0 {
+                                Text("\(stats.unlockedCount)/\(allAchievements.count)")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .animation(.spring(response: 0.4), value: showLevelUp)
             .animation(.spring(response: 0.5), value: showMilestone)
-            .onAppear { checkMilestones() }
+            .onAppear {
+                prevLevel = stats.playerLevel
+                checkMilestones()
+            }
+            .onChange(of: stats.playerLevel) { _, newLevel in
+                guard newLevel > prevLevel else { return }
+                prevLevel = newLevel
+                showLevelUp = true
+                Task {
+                    try? await Task.sleep(for: .seconds(2.5))
+                    showLevelUp = false
+                }
+            }
         }
     }
 
@@ -93,6 +115,17 @@ struct HomeView: View {
             Text("Challenge your mind daily")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            if stats.dailyStreakCount > 0 {
+                HStack(spacing: 5) {
+                    Image(systemName: "flame.fill")
+                    Text("\(stats.dailyStreakCount) day streak")
+                }
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(Color.orange, in: Capsule())
+            }
         }
     }
 
@@ -100,7 +133,6 @@ struct HomeView: View {
 
     var brainScoreSection: some View {
         VStack(spacing: 16) {
-            // Overall score + percentile
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Brain Score")
@@ -112,8 +144,7 @@ struct HomeView: View {
                                           color: .primary)
                         Text(PlayerStats.percentileLabel(for: stats.overallBrainScore))
                             .font(.caption.bold())
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, 10).padding(.vertical, 4)
                             .background(scoreColor(stats.overallBrainScore).opacity(0.15))
                             .foregroundStyle(scoreColor(stats.overallBrainScore))
                             .clipShape(Capsule())
@@ -127,11 +158,10 @@ struct HomeView: View {
                     }
                 }
                 Spacer()
-                // Per-metric mini scores
                 VStack(alignment: .trailing, spacing: 8) {
-                    metricBadge("Memory",  score: stats.memoryBrainScore, color: .blue)
-                    metricBadge("Reflex",  score: stats.reflexBrainScore, color: .orange)
-                    metricBadge("Speed",   score: stats.speedBrainScore,  color: .green)
+                    metricBadge("Memory", score: stats.memoryBrainScore, color: .blue)
+                    metricBadge("Reflex", score: stats.reflexBrainScore, color: .orange)
+                    metricBadge("Speed",  score: stats.speedBrainScore,  color: .green)
                 }
             }
             .padding()
@@ -142,13 +172,30 @@ struct HomeView: View {
 
     func metricBadge(_ name: String, score: Int, color: Color) -> some View {
         HStack(spacing: 6) {
-            Text(name)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(name).font(.caption).foregroundStyle(.secondary)
             Text(score > 0 ? "\(score)" : "—")
                 .font(.caption.bold())
                 .foregroundStyle(score > 0 ? color : .secondary)
         }
+    }
+
+    // MARK: Daily Progress Strip (game-card "played today" dots)
+
+    var dailyProgressStrip: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "calendar").foregroundStyle(.secondary).font(.subheadline)
+            Text("Today").font(.subheadline.bold())
+            Spacer()
+            HStack(spacing: 8) {
+                DailyDot(icon: "square.grid.3x3.fill", color: .blue,   done: stats.playedMemoryToday)
+                DailyDot(icon: "paintpalette.fill",    color: .purple, done: stats.playedColorToday)
+                DailyDot(icon: "bolt.fill",            color: .orange, done: stats.playedReflexToday)
+            }
+            Text("\(stats.dailyGamesCompleted)/3")
+                .font(.caption.bold()).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(Color(.secondarySystemBackground).opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: Daily Challenges
@@ -156,46 +203,27 @@ struct HomeView: View {
     var dailyChallengesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Daily Challenges")
-                    .font(.headline)
+                Text("Daily Challenges").font(.headline)
                 Spacer()
                 if stats.allDailyChallengesDone {
                     Label("All done!", systemImage: "checkmark.seal.fill")
-                        .font(.caption.bold())
-                        .foregroundStyle(.green)
+                        .font(.caption.bold()).foregroundStyle(.green)
                 }
             }
-
             VStack(spacing: 10) {
-                challengeRow(
-                    title: "Memory Training",
-                    icon: "square.grid.3x3.fill",
-                    color: .blue,
-                    done: stats.dailyChallengeMemoryDone,
-                    destination: AnyView(MemoryGameView())
-                )
-                challengeRow(
-                    title: "Reflex Test",
-                    icon: "bolt.fill",
-                    color: .orange,
-                    done: stats.dailyChallengeReflexDone,
-                    destination: AnyView(ReflexGameView())
-                )
-                challengeRow(
-                    title: "Speed Sprint",
-                    icon: "function",
-                    color: .green,
-                    done: stats.dailyChallengeSpeedDone,
-                    destination: AnyView(MathBlitzGameView())
-                )
+                challengeRow("Memory Training",  icon: "square.grid.3x3.fill", color: .blue,
+                             done: stats.dailyChallengeMemoryDone, destination: AnyView(MemoryGameView()))
+                challengeRow("Reflex Test",      icon: "bolt.fill",            color: .orange,
+                             done: stats.dailyChallengeReflexDone, destination: AnyView(ReflexGameView()))
+                challengeRow("Speed Sprint",     icon: "function",             color: .green,
+                             done: stats.dailyChallengeSpeedDone,  destination: AnyView(MathBlitzGameView()))
             }
         }
         .padding()
-        .background(Color(.secondarySystemBackground).opacity(0.92),
-                    in: RoundedRectangle(cornerRadius: 20))
+        .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 20))
     }
 
-    func challengeRow(title: String, icon: String, color: Color, done: Bool, destination: AnyView) -> some View {
+    func challengeRow(_ title: String, icon: String, color: Color, done: Bool, destination: AnyView) -> some View {
         NavigationLink(destination: destination) {
             HStack(spacing: 14) {
                 Image(systemName: done ? "checkmark.circle.fill" : icon)
@@ -203,21 +231,12 @@ struct HomeView: View {
                     .foregroundStyle(done ? .green : color)
                     .frame(width: 32)
                     .animation(.spring(response: 0.4), value: done)
-
-                Text(title)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(done ? .secondary : .primary)
-
+                Text(title).font(.subheadline.bold()).foregroundStyle(done ? .secondary : .primary)
                 Spacer()
-
                 if done {
-                    Text("Done")
-                        .font(.caption.bold())
-                        .foregroundStyle(.green)
+                    Text("Done").font(.caption.bold()).foregroundStyle(.green)
                 } else {
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(.secondary)
-                        .font(.caption.bold())
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.caption.bold())
                 }
             }
             .padding(.vertical, 4)
@@ -229,33 +248,24 @@ struct HomeView: View {
 
     var streakAndLevelSection: some View {
         HStack(spacing: 12) {
-            // Streak
             HStack(spacing: 6) {
                 Image(systemName: "flame.fill")
                     .foregroundStyle(stats.dailyStreakCount > 0 ? .orange : .secondary)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(stats.dailyStreakCount)")
-                        .font(.title3.bold())
-                    Text("day streak")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("\(stats.dailyStreakCount)").font(.title3.bold())
+                    Text("day streak").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color(.secondarySystemBackground).opacity(0.92),
-                        in: RoundedRectangle(cornerRadius: 16))
+            .frame(maxWidth: .infinity).padding()
+            .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
 
-            // XP Level
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Label("Level \(stats.playerLevel)", systemImage: "star.fill")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.indigo)
+                        .font(.subheadline.bold()).foregroundStyle(.indigo)
                     Spacer()
                     Text("\(stats.xpProgressInCurrentLevel)/100 XP")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -268,10 +278,8 @@ struct HomeView: View {
                 }
                 .frame(height: 6)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color(.secondarySystemBackground).opacity(0.92),
-                        in: RoundedRectangle(cornerRadius: 16))
+            .frame(maxWidth: .infinity).padding()
+            .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 
@@ -312,13 +320,10 @@ struct MilestoneToast: View {
                 }
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 20).padding(.vertical, 14)
             .background(
-                Capsule().fill(
-                    LinearGradient(colors: [.indigo, .blue],
-                                   startPoint: .leading, endPoint: .trailing)
-                )
+                Capsule().fill(LinearGradient(colors: [.indigo, .blue],
+                                              startPoint: .leading, endPoint: .trailing))
             )
             .shadow(color: .indigo.opacity(0.4), radius: 12)
             .padding(.top, 8)
@@ -327,7 +332,21 @@ struct MilestoneToast: View {
     }
 }
 
-// MARK: - GameCard (kept for TrainView)
+// MARK: - DailyDot
+
+struct DailyDot: View {
+    let icon: String
+    let color: Color
+    let done: Bool
+
+    var body: some View {
+        Image(systemName: done ? "checkmark.circle.fill" : icon)
+            .font(.system(size: 18))
+            .foregroundStyle(done ? .green : color.opacity(0.4))
+    }
+}
+
+// MARK: - GameCard
 
 struct GameCard: View {
     let title: String
@@ -335,28 +354,32 @@ struct GameCard: View {
     let icon: String
     let color: Color
     var bestScore: String? = nil
+    var playedToday: Bool = false
     var brainScore: Int? = nil
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(color)
-                .frame(width: 60, height: 60)
-                .background(color.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 60, height: 60)
+                    .background(color.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                if playedToday {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.green)
+                        .background(Circle().fill(Color(.systemBackground)).padding(2))
+                        .offset(x: 6, y: -6)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.title2.bold())
-                    .foregroundStyle(Color.primary)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.secondary)
+                Text(title).font(.title2.bold()).foregroundStyle(.primary)
+                Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                 if let best = bestScore {
-                    Text(best)
-                        .font(.caption.bold())
-                        .foregroundStyle(color)
+                    Text(best).font(.caption.bold()).foregroundStyle(color)
                 }
             }
 
@@ -364,39 +387,20 @@ struct GameCard: View {
 
             if let bs = brainScore, bs > 0 {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(bs)")
-                        .font(.title3.bold())
-                        .foregroundStyle(color)
-                    Text("score")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Text("\(bs)").font(.title3.bold()).foregroundStyle(color)
+                    Text("score").font(.caption2).foregroundStyle(.secondary)
                 }
             }
 
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.secondary)
-                .font(.subheadline.bold())
+            Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.subheadline.bold())
         }
         .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground).opacity(0.92))
-        )
+        .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground).opacity(0.92)))
         .buttonStyle(.plain)
     }
 }
 
-#Preview("Onboarding") {
+#Preview("Main App") {
     ContentView()
         .modelContainer(for: [PlayerStats.self, GameSession.self], inMemory: true)
-}
-
-#Preview("Main App") {
-    // Simulate already-onboarded user
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: PlayerStats.self, GameSession.self, configurations: config)
-    let stats = PlayerStats()
-    stats.hasCompletedOnboarding = true
-    container.mainContext.insert(stats)
-    return ContentView().modelContainer(container)
 }
