@@ -15,7 +15,12 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemBackground).ignoresSafeArea()
+                AnimatedGradientBackground()
+                    .ignoresSafeArea()
+
+                // Soft scrim so text stays readable
+                Color(.systemBackground).opacity(0.82)
+                    .ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 0) {
@@ -30,7 +35,6 @@ struct ContentView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
 
-                            // Daily streak badge
                             if stats.dailyStreakCount > 0 {
                                 HStack(spacing: 5) {
                                     Image(systemName: "flame.fill")
@@ -82,11 +86,10 @@ struct ContentView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 32)
 
-                        // XP / level strip
                         if stats.totalXP > 0 {
                             levelStrip
                                 .padding(.horizontal, 20)
-                                .padding(.bottom, 24)
+                                .padding(.bottom, 32)
                         }
                     }
                 }
@@ -112,12 +115,13 @@ struct ContentView: View {
                     Capsule()
                         .fill(Color.indigo)
                         .frame(width: geo.size.width * CGFloat(stats.xpProgressInCurrentLevel) / 100)
+                        .animation(.easeOut(duration: 0.5), value: stats.xpProgressInCurrentLevel)
                 }
             }
             .frame(height: 6)
         }
         .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemBackground).opacity(0.9), in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -160,7 +164,7 @@ struct GameCard: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color(.secondarySystemBackground).opacity(0.92))
         )
         .buttonStyle(.plain)
     }

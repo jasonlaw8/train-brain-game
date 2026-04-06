@@ -27,6 +27,7 @@ class ColorGameViewModel: ObservableObject {
     @Published var streak = 0
     @Published var bestStreak = 0
     @Published var timeRemaining: Double = 30
+    @Published var totalDuration: Double = 30
     @Published var gameState: GameState = .idle
     @Published var lastCorrect: Bool? = nil
     @Published var showNewBest = false
@@ -35,6 +36,7 @@ class ColorGameViewModel: ObservableObject {
     private var timer: Timer?
     private var totalAttempts = 0
     private var correctAttempts = 0
+    private var difficulty: Difficulty = .medium
 
     var accuracy: Int {
         guard totalAttempts > 0 else { return 0 }
@@ -42,16 +44,17 @@ class ColorGameViewModel: ObservableObject {
     }
 
     enum GameState { case idle, playing, gameOver }
+    var onGameOver: ((Int, Int) -> Void)?
 
-    var onGameOver: ((Int, Int) -> Void)?  // (score, streak)
-
-    func startGame() {
+    func startGame(difficulty: Difficulty = .medium) {
+        self.difficulty = difficulty
+        totalDuration = difficulty.colorTimerDuration
         score = 0
         streak = 0
         bestStreak = 0
         totalAttempts = 0
         correctAttempts = 0
-        timeRemaining = 30
+        timeRemaining = difficulty.colorTimerDuration
         gameState = .playing
         nextQuestion()
         startTimer()
@@ -76,26 +79,32 @@ class ColorGameViewModel: ObservableObject {
             Haptics.error()
         }
 
-        Task {
-            try? await Task.sleep(for: .milliseconds(220))
-            guard gameState == .playing else { return }
+        let delay = difficulty.colorQuestionDelay
+        if delay == 0 {
             nextQuestion()
+        } else {
+            Task {
+                try? await Task.sleep(for: .seconds(delay))
+                guard gameState == .playing else { return }
+                nextQuestion()
+            }
         }
     }
 
     private func nextQuestion() {
         lastCorrect = nil
-        let word = allOptions.randomElement()!
+        let pool = Array(allOptions.prefix(difficulty.colorOptionCount))
+        let word = pool.randomElement()!
         var ink: ColorOption
-        repeat { ink = allOptions.randomElement()! } while ink == word
+        repeat { ink = pool.randomElement()! } while ink == word
 
         wordText = word.name
         inkColor = ink.color
         correctOption = ink
 
-        var pool = allOptions.filter { $0 != ink }
-        pool.shuffle()
-        choices = ([ink] + Array(pool.prefix(3))).shuffled()
+        var others = pool.filter { $0 != ink }
+        others.shuffle()
+        choices = ([ink] + Array(others.prefix(3))).shuffled()
     }
 
     private func startTimer() {
@@ -121,6 +130,7 @@ struct ColorGameView: View {
     @StateObject private var vm = ColorGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
+    @AppStorage("colorDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
@@ -134,20 +144,18 @@ struct ColorGameView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Header stats
                 HStack {
-                    StatBadge(label: "Score", value: "\(vm.score)", color: .purple)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Score").font(.caption.smallCaps()).foregroundStyle(.secondary)
+                        AnimatedScoreText(value: vm.score, font: .title2.bold(), color: .purple)
+                    }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("Streak")
-                            .font(.caption.smallCaps())
-                            .foregroundStyle(.secondary)
+                        Text("Streak").font(.caption.smallCaps()).foregroundStyle(.secondary)
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
-                            Text("\(vm.streak)")
+                            AnimatedScoreText(value: vm.streak, font: .title2.bold(), color: .orange)
                         }
-                        .font(.title2.bold())
-                        .foregroundStyle(.orange)
                     }
                 }
                 .padding(.horizontal)
@@ -179,10 +187,7 @@ struct ColorGameView: View {
                 if isNewBest && score > 0 {
                     vm.showNewBest = true
                     Haptics.success()
-                    Task {
-                        try? await Task.sleep(for: .seconds(2))
-                        vm.showNewBest = false
-                    }
+                    Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
                 }
             }
         }
@@ -211,6 +216,9 @@ struct ColorGameView: View {
                 }
             }
             Spacer()
+            DifficultyPicker(difficulty: $difficulty)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
             startButton(label: "Start", color: .purple)
         }
     }
@@ -225,7 +233,7 @@ struct ColorGameView: View {
                         Capsule().fill(Color(.systemGray5))
                         Capsule()
                             .fill(timerBarColor)
-                            .frame(width: geo.size.width * CGFloat(vm.timeRemaining / 30))
+                            .frame(width: geo.size.width * CGFloat(vm.timeRemaining / vm.totalDuration))
                     }
                 }
                 .frame(height: 8)
@@ -240,18 +248,16 @@ struct ColorGameView: View {
 
             Spacer()
 
-            ZStack {
-                Text(vm.wordText)
-                    .font(.system(size: 80, weight: .black))
-                    .foregroundStyle(vm.inkColor)
-                    .shadow(color: vm.inkColor.opacity(0.25), radius: 10)
-                    .id(vm.wordText + vm.inkColor.description)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.8).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-            }
-            .animation(.spring(response: 0.3), value: vm.wordText)
+            Text(vm.wordText)
+                .font(.system(size: 80, weight: .black))
+                .foregroundStyle(vm.inkColor)
+                .shadow(color: vm.inkColor.opacity(0.25), radius: 10)
+                .id(vm.wordText + vm.inkColor.description)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.8).combined(with: .opacity),
+                    removal: .opacity
+                ))
+                .animation(.spring(response: 0.3), value: vm.wordText)
 
             if let correct = vm.lastCorrect {
                 Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -264,9 +270,7 @@ struct ColorGameView: View {
 
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(vm.choices) { option in
-                    Button {
-                        vm.selectColor(option)
-                    } label: {
+                    Button { vm.selectColor(option) } label: {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(option.color)
                             .overlay(
@@ -295,8 +299,8 @@ struct ColorGameView: View {
                     .font(.largeTitle.bold())
 
                 VStack(spacing: 12) {
-                    resultRow(label: "Score", value: "\(vm.score)", color: .purple)
-                    resultRow(label: "Accuracy", value: "\(vm.accuracy)%", color: .blue)
+                    resultRow(label: "Score",       value: "\(vm.score)",      color: .purple)
+                    resultRow(label: "Accuracy",    value: "\(vm.accuracy)%",  color: .blue)
                     HStack {
                         Text("Best Streak").foregroundStyle(.secondary)
                         Spacer()
@@ -316,15 +320,16 @@ struct ColorGameView: View {
 
                 if vm.score >= 100 {
                     Label("Excellent!", systemImage: "trophy.fill")
-                        .font(.title3.bold())
-                        .foregroundStyle(.yellow)
+                        .font(.title3.bold()).foregroundStyle(.yellow)
                 } else if vm.score >= 60 {
                     Label("Good job!", systemImage: "hand.thumbsup.fill")
-                        .font(.title3.bold())
-                        .foregroundStyle(.green)
+                        .font(.title3.bold()).foregroundStyle(.green)
                 }
             }
             Spacer()
+            DifficultyPicker(difficulty: $difficulty)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
             startButton(label: "Play Again", color: .purple)
         }
     }
@@ -332,7 +337,7 @@ struct ColorGameView: View {
     // MARK: Helpers
 
     func startButton(label: String, color: Color) -> some View {
-        Button { vm.startGame() } label: {
+        Button { vm.startGame(difficulty: difficulty) } label: {
             Text(label)
                 .font(.title3.bold())
                 .foregroundStyle(.white)
@@ -353,8 +358,9 @@ struct ColorGameView: View {
     }
 
     var timerBarColor: Color {
-        if vm.timeRemaining > 15 { return .green }
-        if vm.timeRemaining > 7  { return .orange }
+        let fraction = vm.timeRemaining / vm.totalDuration
+        if fraction > 0.5 { return .green }
+        if fraction > 0.25 { return .orange }
         return .red
     }
 }

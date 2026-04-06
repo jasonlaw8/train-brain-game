@@ -15,6 +15,7 @@
 		AABB000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000015 /* Assets.xcassets */; };
 		AABB000000000000000007 /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000017 /* AppStorage.swift */; };
 		AABB000000000000000008 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000018 /* Haptics.swift */; };
+		AABB000000000000000009 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000019 /* Theme.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +27,7 @@
 		AABB000000000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AABB000000000000000017 /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
 		AABB000000000000000018 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		AABB000000000000000019 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AABB000000000000000016 /* TrainBrain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrainBrain.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -59,6 +61,7 @@
 				AABB000000000000000015 /* Assets.xcassets */,
 				AABB000000000000000017 /* AppStorage.swift */,
 				AABB000000000000000018 /* Haptics.swift */,
+				AABB000000000000000019 /* Theme.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -147,6 +150,7 @@
 				AABB000000000000000005 /* ReflexGameView.swift in Sources */,
 				AABB000000000000000007 /* AppStorage.swift in Sources */,
 				AABB000000000000000008 /* Haptics.swift in Sources */,
+				AABB000000000000000009 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

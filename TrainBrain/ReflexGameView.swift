@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-// Tap the orange circle as fast as you can. 8 rounds, then results.
+// Tap the circle as fast as you can. 8 rounds, then results.
 
 @MainActor
 class ReflexGameViewModel: ObservableObject {
@@ -15,10 +15,12 @@ class ReflexGameViewModel: ObservableObject {
     @Published var tooEarly = false
     @Published var reactionTimes: [Double] = []
     @Published var showNewBest = false
+    @Published var targetSize: CGFloat = 88
 
     var containerSize: CGSize = CGSize(width: 300, height: 460)
     private var targetAppearTime: Date?
     private var waitTask: Task<Void, Never>?
+    private var difficulty: Difficulty = .medium
 
     enum GameState { case idle, waiting, targetShowing, roundResult, finished }
 
@@ -30,9 +32,11 @@ class ReflexGameViewModel: ObservableObject {
         return reactionTimes.reduce(0, +) / Double(reactionTimes.count)
     }
 
-    var onGameOver: ((Double) -> Void)?  // best reaction time ms
+    var onGameOver: ((Double) -> Void)?
 
-    func startGame() {
+    func startGame(difficulty: Difficulty = .medium) {
+        self.difficulty = difficulty
+        self.targetSize = difficulty.reflexTargetSize
         reactionTimes = []
         lastReactionMs = nil
         tooEarly = false
@@ -45,7 +49,7 @@ class ReflexGameViewModel: ObservableObject {
         lastReactionMs = nil
         gameState = .waiting
 
-        let delay = Double.random(in: 1.0...3.5)
+        let delay = Double.random(in: difficulty.reflexDelayRange)
         waitTask?.cancel()
         waitTask = Task {
             try? await Task.sleep(for: .seconds(delay))
@@ -55,7 +59,7 @@ class ReflexGameViewModel: ObservableObject {
     }
 
     private func showTarget() {
-        let pad: CGFloat = 55
+        let pad: CGFloat = targetSize / 2 + 8
         targetX = CGFloat.random(in: pad...(containerSize.width - pad))
         targetY = CGFloat.random(in: pad...(containerSize.height - pad))
         targetVisible = true
@@ -77,9 +81,7 @@ class ReflexGameViewModel: ObservableObject {
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             if reactionTimes.count >= Self.totalRounds {
-                if let best = bestTime {
-                    onGameOver?(best)
-                }
+                if let best = bestTime { onGameOver?(best) }
                 gameState = .finished
             } else {
                 nextRound()
@@ -104,6 +106,7 @@ struct ReflexGameView: View {
     @StateObject private var vm = ReflexGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
+    @AppStorage("reflexDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
@@ -115,7 +118,6 @@ struct ReflexGameView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Header
                 HStack {
                     StatBadge(
                         label: "Round",
@@ -124,17 +126,9 @@ struct ReflexGameView: View {
                     )
                     Spacer()
                     if let best = vm.bestTime {
-                        StatBadge(
-                            label: "Best",
-                            value: String(format: "%.0f ms", best),
-                            color: reactionColor(best)
-                        )
+                        StatBadge(label: "Best", value: String(format: "%.0f ms", best), color: reactionColor(best))
                     } else if stats.reflexBestTimeMs > 0 {
-                        StatBadge(
-                            label: "Record",
-                            value: String(format: "%.0f ms", stats.reflexBestTimeMs),
-                            color: reactionColor(stats.reflexBestTimeMs)
-                        )
+                        StatBadge(label: "Record", value: String(format: "%.0f ms", stats.reflexBestTimeMs), color: reactionColor(stats.reflexBestTimeMs))
                     }
                 }
                 .padding(.horizontal)
@@ -163,10 +157,7 @@ struct ReflexGameView: View {
                 if isNewBest {
                     vm.showNewBest = true
                     Haptics.success()
-                    Task {
-                        try? await Task.sleep(for: .seconds(2))
-                        vm.showNewBest = false
-                    }
+                    Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
                 }
             }
         }
@@ -182,10 +173,8 @@ struct ReflexGameView: View {
                     .onTapGesture { vm.backgroundTapped() }
 
                 VStack {
-                    statusMessage
-                        .padding(.top, 24)
+                    statusMessage.padding(.top, 24)
                     Spacer()
-
                     if !vm.reactionTimes.isEmpty {
                         HStack(spacing: 6) {
                             ForEach(Array(vm.reactionTimes.suffix(5).enumerated()), id: \.offset) { _, t in
@@ -204,19 +193,12 @@ struct ReflexGameView: View {
 
                 if vm.targetVisible {
                     Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [.yellow, .orange],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 44
-                            )
-                        )
-                        .frame(width: 88, height: 88)
+                        .fill(RadialGradient(colors: [.yellow, .orange], center: .center, startRadius: 0, endRadius: vm.targetSize / 2))
+                        .frame(width: vm.targetSize, height: vm.targetSize)
                         .shadow(color: .orange.opacity(0.6), radius: 16)
                         .overlay(
                             Image(systemName: "hand.tap.fill")
-                                .font(.title2)
+                                .font(vm.targetSize > 80 ? .title2 : .body)
                                 .foregroundStyle(.white)
                         )
                         .position(x: vm.targetX, y: vm.targetY)
@@ -228,7 +210,7 @@ struct ReflexGameView: View {
             .padding(.horizontal)
             .padding(.vertical, 12)
             .onAppear { vm.containerSize = geo.size }
-            .onChange(of: geo.size) { _, newSize in vm.containerSize = newSize }
+            .onChange(of: geo.size) { _, s in vm.containerSize = s }
         }
         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: vm.targetVisible)
     }
@@ -239,17 +221,12 @@ struct ReflexGameView: View {
         case .waiting:
             if vm.tooEarly {
                 Label("Too early! Wait…", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .font(.headline)
+                    .foregroundStyle(.red).font(.headline)
             } else {
-                Text("Get ready…")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+                Text("Get ready…").font(.headline).foregroundStyle(.secondary)
             }
         case .targetShowing:
-            Text("TAP IT!")
-                .font(.title2.bold())
-                .foregroundStyle(.orange)
+            Text("TAP IT!").font(.title2.bold()).foregroundStyle(.orange)
         case .roundResult:
             if let ms = vm.lastReactionMs {
                 VStack(spacing: 4) {
@@ -257,12 +234,10 @@ struct ReflexGameView: View {
                         .font(.title.bold().monospacedDigit())
                         .foregroundStyle(reactionColor(ms))
                     Text(speedLabel(ms))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(.secondary)
                 }
             }
-        default:
-            EmptyView()
+        default: EmptyView()
         }
     }
 
@@ -271,18 +246,14 @@ struct ReflexGameView: View {
     var idleOrResultView: some View {
         VStack(spacing: 0) {
             Spacer()
-
-            if vm.gameState == .finished {
-                resultsContent
-            } else {
-                introContent
-            }
-
+            if vm.gameState == .finished { resultsContent } else { introContent }
             Spacer()
 
-            Button {
-                vm.startGame()
-            } label: {
+            DifficultyPicker(difficulty: $difficulty)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+
+            Button { vm.startGame(difficulty: difficulty) } label: {
                 Text(vm.gameState == .idle ? "Start" : "Play Again")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -297,28 +268,20 @@ struct ReflexGameView: View {
 
     var introContent: some View {
         VStack(spacing: 16) {
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(.orange)
-            Text("Reflex Test")
-                .font(.largeTitle.bold())
+            Image(systemName: "bolt.fill").font(.system(size: 72)).foregroundStyle(.orange)
+            Text("Reflex Test").font(.largeTitle.bold())
             Text("Tap the circle as fast as you can.\n\(ReflexGameViewModel.totalRounds) rounds — don't tap too early!")
-                .font(.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
+                .font(.body).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
             if stats.reflexBestTimeMs > 0 {
                 Label(String(format: "Record: %.0f ms", stats.reflexBestTimeMs), systemImage: "trophy.fill")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.yellow)
+                    .font(.subheadline.bold()).foregroundStyle(.yellow)
             }
         }
     }
 
     var resultsContent: some View {
         VStack(spacing: 20) {
-            Text("Results")
-                .font(.largeTitle.bold())
+            Text("Results").font(.largeTitle.bold())
 
             VStack(spacing: 10) {
                 if let avg = vm.averageTime {
@@ -328,8 +291,7 @@ struct ReflexGameView: View {
                     resultRow("Your Best", value: String(format: "%.0f ms", best), color: reactionColor(best))
                 }
                 Divider()
-                // Benchmark comparisons
-                resultRow("Average human", value: "~250 ms", color: .secondary)
+                resultRow("Average human",   value: "~250 ms", color: .secondary)
                 resultRow("Trained athlete", value: "~150 ms", color: .secondary)
                 if let avg = vm.averageTime {
                     resultRow("Your ranking", value: benchmarkLabel(avg), color: reactionColor(avg))
@@ -346,8 +308,7 @@ struct ReflexGameView: View {
             VStack(spacing: 8) {
                 ForEach(Array(vm.reactionTimes.enumerated()), id: \.offset) { i, t in
                     HStack {
-                        Text("Round \(i + 1)")
-                            .foregroundStyle(.secondary)
+                        Text("Round \(i + 1)").foregroundStyle(.secondary)
                         Spacer()
                         Text(String(format: "%.0f ms", t))
                             .font(.subheadline.monospacedDigit().bold())
