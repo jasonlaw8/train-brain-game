@@ -162,6 +162,74 @@ let allAchievements: [Achievement] = [
         icon: "brain.filled.head.profile",
         color: .indigo
     ) { $0.overallBrainScore >= 110 },
+
+    // MARK: Flanker Task (Attention)
+    Achievement(
+        id: "flanker_80",
+        name: "Sharp Focus",
+        description: "Hit 80% accuracy in Flanker Task",
+        icon: "scope",
+        color: .teal
+    ) { $0.flankerBestAccuracy >= 80 },
+
+    Achievement(
+        id: "flanker_95",
+        name: "Laser Focus",
+        description: "Hit 95% accuracy in Flanker Task",
+        icon: "target",
+        color: .teal
+    ) { $0.flankerBestAccuracy >= 95 },
+
+    // MARK: Spatial Memory
+    Achievement(
+        id: "spatial_5",
+        name: "Spatial Thinker",
+        description: "Reach level 5 in Spatial Memory",
+        icon: "square.grid.2x2.fill",
+        color: .cyan
+    ) { $0.spatialBestLevel >= 5 },
+
+    Achievement(
+        id: "spatial_10",
+        name: "Mind Map",
+        description: "Reach level 10 in Spatial Memory",
+        icon: "map.fill",
+        color: .cyan
+    ) { $0.spatialBestLevel >= 10 },
+
+    // MARK: Visual Search
+    Achievement(
+        id: "visual_6",
+        name: "Eagle Eye",
+        description: "Find 6 targets in Visual Search",
+        icon: "eye.fill",
+        color: .indigo
+    ) { $0.visualBestScore >= 6 },
+
+    Achievement(
+        id: "visual_8",
+        name: "Perfect Vision",
+        description: "Find all 8 targets in Visual Search",
+        icon: "eye.circle.fill",
+        color: .indigo
+    ) { $0.visualBestScore >= 8 },
+
+    // MARK: Pattern Match
+    Achievement(
+        id: "pattern_8",
+        name: "Pattern Seeker",
+        description: "Get 8 correct in Pattern Match",
+        icon: "puzzlepiece.fill",
+        color: .pink
+    ) { $0.patternBestScore >= 8 },
+
+    Achievement(
+        id: "pattern_10",
+        name: "Code Breaker",
+        description: "Get a perfect score in Pattern Match",
+        icon: "sparkles",
+        color: .pink
+    ) { $0.patternBestScore >= 10 },
 ]
 
 // MARK: - Check & unlock

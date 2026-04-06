@@ -26,6 +26,10 @@
 		AABB000000000000000082 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000021 /* ProgressView.swift */; };
 		AABB000000000000000083 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000084 /* NotificationManager.swift */; };
 		AABB000000000000000091 /* TrainBrain.entitlements in Resources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000090 /* TrainBrain.entitlements */; };
+		AABB0000000000000001A2 /* FlankerGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001A1 /* FlankerGameView.swift */; };
+		AABB0000000000000001B2 /* SpatialMemoryGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001B1 /* SpatialMemoryGameView.swift */; };
+		AABB0000000000000001C2 /* VisualSearchGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001C1 /* VisualSearchGameView.swift */; };
+		AABB0000000000000001D2 /* PatternMatchGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000001D1 /* PatternMatchGameView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +53,10 @@
 		AABB000000000000000084 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		AABB000000000000000090 /* TrainBrain.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrainBrain.entitlements; sourceTree = "<group>"; };
 		AABB000000000000000016 /* TrainBrain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrainBrain.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABB0000000000000001A1 /* FlankerGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlankerGameView.swift; sourceTree = "<group>"; };
+		AABB0000000000000001B1 /* SpatialMemoryGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialMemoryGameView.swift; sourceTree = "<group>"; };
+		AABB0000000000000001C1 /* VisualSearchGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSearchGameView.swift; sourceTree = "<group>"; };
+		AABB0000000000000001D1 /* PatternMatchGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternMatchGameView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,6 +100,10 @@
 				AABB000000000000000021 /* ProgressView.swift */,
 				AABB000000000000000084 /* NotificationManager.swift */,
 				AABB000000000000000090 /* TrainBrain.entitlements */,
+				AABB0000000000000001A1 /* FlankerGameView.swift */,
+				AABB0000000000000001B1 /* SpatialMemoryGameView.swift */,
+				AABB0000000000000001C1 /* VisualSearchGameView.swift */,
+				AABB0000000000000001D1 /* PatternMatchGameView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -190,6 +202,10 @@
 				AABB000000000000000081 /* TrainView.swift in Sources */,
 				AABB000000000000000082 /* ProgressView.swift in Sources */,
 				AABB000000000000000083 /* NotificationManager.swift in Sources */,
+				AABB0000000000000001A2 /* FlankerGameView.swift in Sources */,
+				AABB0000000000000001B2 /* SpatialMemoryGameView.swift in Sources */,
+				AABB0000000000000001C2 /* VisualSearchGameView.swift in Sources */,
+				AABB0000000000000001D2 /* PatternMatchGameView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

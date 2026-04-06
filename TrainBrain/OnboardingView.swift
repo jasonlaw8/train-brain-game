@@ -9,8 +9,8 @@ struct OnboardingView: View {
 
     @State private var currentPage = 0
 
-    // Pages: 0-2 = brain facts, 3-6 = animated game demos (Memory, Color, Reflex, Math Blitz)
-    private let totalPages = 7
+    // Pages: 0-2 = brain facts, 3-10 = animated game demos (Memory, Color, Spatial, Flanker, Reflex, Math Blitz, Visual, Pattern)
+    private let totalPages = 11
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -66,11 +66,23 @@ struct OnboardingView: View {
                 ColorOnboardingPage()
                     .tag(4)
 
-                ReflexOnboardingPage()
+                SpatialMemoryOnboardingPage()
                     .tag(5)
 
-                MathBlitzOnboardingPage(onComplete: onComplete)
+                FlankerOnboardingPage()
                     .tag(6)
+
+                ReflexOnboardingPage()
+                    .tag(7)
+
+                MathBlitzOnboardingPage()
+                    .tag(8)
+
+                VisualSearchOnboardingPage()
+                    .tag(9)
+
+                PatternMatchOnboardingPage(onComplete: onComplete)
+                    .tag(10)
             }
             .tabViewStyle(.page)
             .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -342,16 +354,13 @@ private struct ReflexOnboardingPage: View {
     }
 }
 
-// MARK: - Page: Math Blitz demo + Get Started
+// MARK: - Page: Math Blitz demo (intermediate)
 
 private struct MathBlitzOnboardingPage: View {
-    var onComplete: () -> Void
-
     @State private var iconBounce = false
     @State private var currentProblemIndex = 0
     @State private var highlightedAnswer: Int? = nil
 
-    // Three sample problems: (display, answers, correct-index)
     private let problems: [(question: String, answers: [Int], correctIndex: Int)] = [
         ("7 + 3", [10, 8, 12, 5], 0),
         ("12 − 5", [9, 7, 6, 8], 1),
@@ -379,7 +388,6 @@ private struct MathBlitzOnboardingPage: View {
                     .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
 
-            // Demo card
             VStack(spacing: 16) {
                 Text("\(current.question) = ?")
                     .font(.system(size: 40, weight: .bold, design: .rounded))
@@ -407,14 +415,305 @@ private struct MathBlitzOnboardingPage: View {
                 .fill(Color(.secondarySystemBackground).opacity(0.85)))
             .padding(.horizontal, 32)
 
-            // Get Started
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func startDemoLoop() {
+        func showAnswer() {
+            highlightedAnswer = current.correctIndex
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                highlightedAnswer = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    currentProblemIndex = (currentProblemIndex + 1) % problems.count
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showAnswer() }
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { showAnswer() }
+    }
+}
+
+// MARK: - Page: Spatial Memory demo
+
+private struct SpatialMemoryOnboardingPage: View {
+    @State private var iconBounce = false
+    @State private var litCells: Set<Int> = []
+    @State private var phase: Int = 0   // 0=show, 1=hide
+
+    private let gridSize = 4   // 4×4
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "square.grid.2x2.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.cyan)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle(); startAnimation() }
+
+            VStack(spacing: 8) {
+                Text("Spatial Memory")
+                    .font(.largeTitle.bold())
+                Text("Memorize the highlighted cells,\nthen tap them from memory")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.fixed(56), spacing: 8), count: gridSize),
+                spacing: 8
+            ) {
+                ForEach(0..<(gridSize * gridSize), id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(litCells.contains(i) ? Color.cyan.opacity(0.85) : Color(.systemGray5))
+                        .frame(width: 56, height: 56)
+                        .scaleEffect(litCells.contains(i) ? 1.06 : 1.0)
+                        .animation(.easeInOut(duration: 0.3), value: litCells.contains(i))
+                }
+            }
+            .padding(20)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.secondarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 20)
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func startAnimation() {
+        let targets = Array((0..<(gridSize * gridSize)).shuffled().prefix(5))
+        withAnimation { litCells = Set(targets) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation { litCells = [] }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { startAnimation() }
+        }
+    }
+}
+
+// MARK: - Page: Flanker Task demo
+
+private struct FlankerOnboardingPage: View {
+    @State private var iconBounce = false
+    @State private var arrowIndex = 0
+    @State private var highlight: Bool = false
+
+    // (flankers, center) pairs cycling through congruent/incongruent/neutral
+    private let trials: [(flanker: String, center: String, label: String)] = [
+        ("→ → ", "→", "→ →  — congruent"),
+        ("← ← ", "→", "← →  — incongruent"),
+        ("— — ", "←", "—  ←  — neutral"),
+    ]
+
+    private var current: (flanker: String, center: String, label: String) { trials[arrowIndex] }
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "arrow.left.and.right")
+                .font(.system(size: 64))
+                .foregroundStyle(.teal)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle(); startLoop() }
+
+            VStack(spacing: 8) {
+                Text("Flanker Task")
+                    .font(.largeTitle.bold())
+                Text("Which way does the CENTER arrow point?\nIgnore the flanking arrows")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 20) {
+                // Arrow display
+                HStack(spacing: 0) {
+                    Text(current.flanker)
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    Text(current.center)
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(.teal)
+                    Text(String(current.flanker.reversed()))
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+                .animation(nil, value: arrowIndex)
+
+                Text(current.label)
+                    .font(.caption).foregroundStyle(.secondary).italic()
+                    .animation(nil, value: arrowIndex)
+
+                HStack(spacing: 16) {
+                    Text("←")
+                        .font(.title.bold()).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.teal.opacity(0.8)))
+                    Text("→")
+                        .font(.title.bold()).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.teal.opacity(0.8)))
+                }
+            }
+            .padding(24)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.secondarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 32)
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func startLoop() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            arrowIndex = (arrowIndex + 1) % trials.count
+            startLoop()
+        }
+    }
+}
+
+// MARK: - Page: Visual Search demo
+
+private struct VisualSearchOnboardingPage: View {
+    @State private var iconBounce = false
+    @State private var targetIndex = 0
+    @State private var symbols: [String] = []
+
+    private let distractorSymbol = "circle.fill"
+    private let targetSymbol = "star.fill"
+    private let gridCount = 12
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "eye.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.indigo)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle(); generateGrid(); startLoop() }
+
+            VStack(spacing: 8) {
+                Text("Visual Search")
+                    .font(.largeTitle.bold())
+                Text("Find the odd symbol\nbefore time runs out")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4),
+                spacing: 10
+            ) {
+                ForEach(0..<gridCount, id: \.self) { i in
+                    Image(systemName: symbols.indices.contains(i) ? symbols[i] : distractorSymbol)
+                        .font(.system(size: 28))
+                        .foregroundStyle(i == targetIndex ? Color.indigo : Color(.systemGray3))
+                        .frame(width: 52, height: 52)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .scaleEffect(i == targetIndex ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.3), value: targetIndex)
+                }
+            }
+            .padding(20)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.tertiarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 24)
+
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func generateGrid() {
+        targetIndex = Int.random(in: 0..<gridCount)
+        symbols = (0..<gridCount).map { i in i == targetIndex ? targetSymbol : distractorSymbol }
+    }
+
+    private func startLoop() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            generateGrid()
+            startLoop()
+        }
+    }
+}
+
+// MARK: - Page: Pattern Match demo + Get Started
+
+private struct PatternMatchOnboardingPage: View {
+    var onComplete: () -> Void
+
+    @State private var iconBounce = false
+    @State private var problemIndex = 0
+    @State private var highlightedChoice: Int? = nil
+
+    private let problems: [(sequence: String, choices: [Int], correctIndex: Int)] = [
+        ("2,  4,  6,  ?", [8, 5, 10, 7], 0),
+        ("3,  6,  12,  ?", [24, 15, 18, 9], 0),
+        ("10,  7,  4,  ?", [1, 3, 0, 2], 0),
+    ]
+
+    private var current: (sequence: String, choices: [Int], correctIndex: Int) {
+        problems[problemIndex]
+    }
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "puzzlepiece.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.pink)
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle(); startDemoLoop() }
+
+            VStack(spacing: 8) {
+                Text("Pattern Match")
+                    .font(.largeTitle.bold())
+                Text("Find the rule and pick\nthe next number in the sequence")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 16) {
+                Text(current.sequence)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .animation(nil, value: problemIndex)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(Array(current.choices.enumerated()), id: \.offset) { i, val in
+                        Text("\(val)")
+                            .font(.title2.bold())
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(highlightedChoice == i
+                                          ? Color.pink
+                                          : Color(.tertiarySystemBackground))
+                            )
+                            .foregroundStyle(highlightedChoice == i ? .white : .primary)
+                            .animation(.easeInOut(duration: 0.25), value: highlightedChoice)
+                    }
+                }
+            }
+            .padding(24)
+            .background(RoundedRectangle(cornerRadius: 24)
+                .fill(Color(.secondarySystemBackground).opacity(0.85)))
+            .padding(.horizontal, 32)
+
             Button {
                 withAnimation(.easeInOut(duration: 0.35)) { onComplete() }
             } label: {
                 Text("Get Started")
                     .font(.title3.bold()).foregroundStyle(.white)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.green))
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.pink))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 32).padding(.top, 4)
@@ -424,17 +723,14 @@ private struct MathBlitzOnboardingPage: View {
         .padding(.horizontal, 20)
     }
 
-    // Cycle through problems, highlighting the correct answer
     private func startDemoLoop() {
         func showAnswer() {
-            highlightedAnswer = current.correctIndex
+            highlightedChoice = current.correctIndex
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                highlightedAnswer = nil
+                highlightedChoice = nil
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    currentProblemIndex = (currentProblemIndex + 1) % problems.count
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        showAnswer()
-                    }
+                    problemIndex = (problemIndex + 1) % problems.count
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showAnswer() }
                 }
             }
         }

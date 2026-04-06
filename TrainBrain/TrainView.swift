@@ -52,6 +52,40 @@ struct TrainView: View {
                                     playedToday: stats.playedColorToday
                                 )
                             }
+                            NavigationLink(destination: SpatialMemoryGameView()) {
+                                GameCard(
+                                    title: "Spatial Memory",
+                                    subtitle: "Memorize the grid pattern, then recreate it",
+                                    icon: "square.grid.2x2.fill",
+                                    color: .cyan,
+                                    bestScore: stats.spatialBestLevel > 0
+                                        ? "Best level: \(stats.spatialBestLevel)" : nil,
+                                    playedToday: stats.dailyChallengeSpatialDone,
+                                    brainScore: stats.spatialBrainScore > 0 ? stats.spatialBrainScore : nil
+                                )
+                            }
+                        }
+
+                        // ATTENTION domain
+                        domainSection(
+                            title: "Attention",
+                            icon: "scope",
+                            color: .teal,
+                            brainScore: stats.flankerBrainScore,
+                            description: "Focus on what matters and ignore distractions"
+                        ) {
+                            NavigationLink(destination: FlankerGameView()) {
+                                GameCard(
+                                    title: "Flanker Task",
+                                    subtitle: "Identify the center arrow, ignore the rest",
+                                    icon: "arrow.left.and.right",
+                                    color: .teal,
+                                    bestScore: stats.flankerBestAccuracy > 0
+                                        ? "Best: \(stats.flankerBestAccuracy)% accuracy" : nil,
+                                    playedToday: stats.dailyChallengeFlankerDone,
+                                    brainScore: stats.flankerBrainScore > 0 ? stats.flankerBrainScore : nil
+                                )
+                            }
                         }
 
                         // PROCESSING SPEED domain
@@ -74,6 +108,18 @@ struct TrainView: View {
                                     brainScore: stats.speedBrainScore > 0 ? stats.speedBrainScore : nil
                                 )
                             }
+                            NavigationLink(destination: VisualSearchGameView()) {
+                                GameCard(
+                                    title: "Visual Search",
+                                    subtitle: "Find the odd symbol before time runs out",
+                                    icon: "eye.fill",
+                                    color: .indigo,
+                                    bestScore: stats.visualBestScore > 0
+                                        ? "Best: \(stats.visualBestScore)/8 rounds" : nil,
+                                    playedToday: stats.dailyChallengeVisualDone,
+                                    brainScore: stats.visualBrainScore > 0 ? stats.visualBrainScore : nil
+                                )
+                            }
                         }
 
                         // REFLEX domain
@@ -94,6 +140,28 @@ struct TrainView: View {
                                         ? String(format: "Best: %.0f ms", stats.reflexBestTimeMs) : nil,
                                     playedToday: stats.playedReflexToday,
                                     brainScore: stats.reflexBrainScore > 0 ? stats.reflexBrainScore : nil
+                                )
+                            }
+                        }
+
+                        // PROBLEM SOLVING domain
+                        domainSection(
+                            title: "Problem Solving",
+                            icon: "puzzlepiece.fill",
+                            color: .pink,
+                            brainScore: stats.patternBrainScore,
+                            description: "Detect rules and reason about abstract patterns"
+                        ) {
+                            NavigationLink(destination: PatternMatchGameView()) {
+                                GameCard(
+                                    title: "Pattern Match",
+                                    subtitle: "Find the rule and pick the next number",
+                                    icon: "puzzlepiece.fill",
+                                    color: .pink,
+                                    bestScore: stats.patternBestScore > 0
+                                        ? "Best: \(stats.patternBestScore)/10 correct" : nil,
+                                    playedToday: stats.dailyChallengePatternDone,
+                                    brainScore: stats.patternBrainScore > 0 ? stats.patternBrainScore : nil
                                 )
                             }
                         }

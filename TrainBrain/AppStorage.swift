@@ -29,6 +29,30 @@ final class PlayerStats {
     var speedPlayCount: Int = 0
     var speedBrainScore: Int = 0        // latest normalized score
 
+    // MARK: - Attention (Flanker Task)
+    var flankerBestAccuracy: Int = 0    // 0–100 (%)
+    var flankerPlayCount: Int = 0
+    var flankerBrainScore: Int = 0
+    var flankerLastPlayedDate: Date? = nil
+
+    // MARK: - Spatial Memory
+    var spatialBestLevel: Int = 0
+    var spatialPlayCount: Int = 0
+    var spatialBrainScore: Int = 0
+    var spatialLastPlayedDate: Date? = nil
+
+    // MARK: - Visual Search
+    var visualBestScore: Int = 0        // correct rounds (0–8)
+    var visualPlayCount: Int = 0
+    var visualBrainScore: Int = 0
+    var visualLastPlayedDate: Date? = nil
+
+    // MARK: - Pattern Match
+    var patternBestScore: Int = 0       // correct answers (0–10)
+    var patternPlayCount: Int = 0
+    var patternBrainScore: Int = 0
+    var patternLastPlayedDate: Date? = nil
+
     // MARK: - Cross-game engagement
     var totalXP: Int = 0
     var lastPlayedDate: Date? = nil
@@ -43,6 +67,10 @@ final class PlayerStats {
     var dailyChallengeMemoryDone: Bool = false
     var dailyChallengeReflexDone: Bool = false
     var dailyChallengeSpeedDone: Bool = false
+    var dailyChallengeFlankerDone: Bool = false
+    var dailyChallengeSpatialDone: Bool = false
+    var dailyChallengeVisualDone: Bool = false
+    var dailyChallengePatternDone: Bool = false
 
     // MARK: - Milestones (track first-time Brain Score thresholds to show toast)
     var milestoneOverall100: Bool = false
@@ -62,7 +90,7 @@ final class PlayerStats {
 
     var playerLevel: Int { totalXP / 100 + 1 }   // no cap — infinite progression
     var xpProgressInCurrentLevel: Int { totalXP % 100 }
-    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount }
+    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount + flankerPlayCount + spatialPlayCount + visualPlayCount + patternPlayCount }
 
     // MARK: - Daily tracking (per-game "played today" for game card checkmarks)
 
@@ -119,6 +147,26 @@ final class PlayerStats {
     static func speedBrainScore(correct: Int) -> Int {
         // 30 correct ≈ 100 (average). Clamped 70–145.
         max(70, min(145, 10 + correct * 3))
+    }
+
+    static func flankerBrainScore(accuracy: Int) -> Int {
+        // 80% accuracy ≈ 100 (average). Clamped 70–145.
+        max(70, min(145, accuracy + 20))
+    }
+
+    static func spatialBrainScore(level: Int) -> Int {
+        // Level 6 ≈ 100 (average). Each level ±7 pts. Clamped 70–145.
+        max(70, min(145, 58 + level * 7))
+    }
+
+    static func visualBrainScore(correct: Int) -> Int {
+        // 5/8 correct ≈ 100 (average). Clamped 70–145.
+        max(70, min(145, 40 + correct * 13))
+    }
+
+    static func patternBrainScore(correct: Int) -> Int {
+        // 7/10 correct ≈ 100 (average). Clamped 70–145.
+        max(70, min(145, 35 + correct * 10))
     }
 
     // MARK: - Percentile label
@@ -181,6 +229,46 @@ final class PlayerStats {
         return addXP(score * 2)
     }
 
+    @discardableResult
+    func recordFlankerGame(accuracy: Int) -> Bool {
+        if accuracy > flankerBestAccuracy { flankerBestAccuracy = accuracy }
+        flankerPlayCount += 1
+        flankerBrainScore = Self.flankerBrainScore(accuracy: accuracy)
+        flankerLastPlayedDate = Date()
+        markDailyChallenge("flanker")
+        return addXP(accuracy / 5)
+    }
+
+    @discardableResult
+    func recordSpatialGame(level: Int) -> Bool {
+        if level > spatialBestLevel { spatialBestLevel = level }
+        spatialPlayCount += 1
+        spatialBrainScore = Self.spatialBrainScore(level: level)
+        spatialLastPlayedDate = Date()
+        markDailyChallenge("spatial")
+        return addXP(level * 8)
+    }
+
+    @discardableResult
+    func recordVisualGame(correct: Int) -> Bool {
+        if correct > visualBestScore { visualBestScore = correct }
+        visualPlayCount += 1
+        visualBrainScore = Self.visualBrainScore(correct: correct)
+        visualLastPlayedDate = Date()
+        markDailyChallenge("visual")
+        return addXP(correct * 10)
+    }
+
+    @discardableResult
+    func recordPatternGame(correct: Int) -> Bool {
+        if correct > patternBestScore { patternBestScore = correct }
+        patternPlayCount += 1
+        patternBrainScore = Self.patternBrainScore(correct: correct)
+        patternLastPlayedDate = Date()
+        markDailyChallenge("pattern")
+        return addXP(correct * 8)
+    }
+
     /// Returns the newly crossed milestone Brain Score threshold (100/110/120/130), or nil.
     @discardableResult
     func checkMilestones() -> Int? {
@@ -208,9 +296,13 @@ final class PlayerStats {
     private func markDailyChallenge(_ type: String) {
         resetDailyChallengesIfNeeded()
         switch type {
-        case "memory": dailyChallengeMemoryDone = true
-        case "reflex": dailyChallengeReflexDone = true
-        case "speed":  dailyChallengeSpeedDone  = true
+        case "memory":  dailyChallengeMemoryDone  = true
+        case "reflex":  dailyChallengeReflexDone  = true
+        case "speed":   dailyChallengeSpeedDone   = true
+        case "flanker": dailyChallengeFlankerDone  = true
+        case "spatial": dailyChallengeSpatialDone  = true
+        case "visual":  dailyChallengeVisualDone   = true
+        case "pattern": dailyChallengePatternDone  = true
         default: break
         }
     }
@@ -220,9 +312,13 @@ final class PlayerStats {
         let today = calendar.startOfDay(for: Date())
         if let last = dailyChallengeDate {
             if calendar.startOfDay(for: last) < today {
-                dailyChallengeMemoryDone = false
-                dailyChallengeReflexDone = false
-                dailyChallengeSpeedDone  = false
+                dailyChallengeMemoryDone  = false
+                dailyChallengeReflexDone  = false
+                dailyChallengeSpeedDone   = false
+                dailyChallengeFlankerDone = false
+                dailyChallengeSpatialDone = false
+                dailyChallengeVisualDone  = false
+                dailyChallengePatternDone = false
                 dailyChallengeDate = Date()
             }
         } else {
