@@ -8,21 +8,6 @@ struct TrainBrainApp: App {
     @AppStorage("notificationHour") private var notificationHour = 9
     @AppStorage("notificationMinute") private var notificationMinute = 0
 
-    private let container: ModelContainer = {
-        // Try CloudKit-backed store first
-        do {
-            let config = ModelConfiguration(cloudKitDatabase: .automatic)
-            return try ModelContainer(for: PlayerStats.self, GameSession.self, configurations: config)
-        } catch {}
-        // Fall back to local-only store
-        do {
-            return try ModelContainer(for: PlayerStats.self, GameSession.self)
-        } catch {}
-        // Last resort: in-memory (no persistence loss risk, app won't crash)
-        return try! ModelContainer(for: PlayerStats.self, GameSession.self,
-                                   configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-    }()
-
     init() {
         // Haptics default to ON — only off if user explicitly disabled
         UserDefaults.standard.register(defaults: ["hapticsEnabled": true])
@@ -50,6 +35,6 @@ struct TrainBrainApp: App {
                 }
             }
         }
-        .modelContainer(container)
+        .modelContainer(for: [PlayerStats.self, GameSession.self])
     }
 }
