@@ -86,6 +86,32 @@ final class PlayerStats {
 
     init() {}
 
+    // MARK: - Reset
+
+    /// Wipes every stat, score, XP, streak, achievement, and daily-challenge flag back to defaults.
+    func resetAllStats() {
+        memoryBestScore = 0; memoryBestLevel = 0; memoryPlayCount = 0
+        memoryBrainScore = 0; memoryLastPlayedDate = nil
+        colorBestScore = 0; colorBestStreak = 0; colorPlayCount = 0; colorLastPlayedDate = nil
+        reflexBestTimeMs = 0; reflexPlayCount = 0; reflexBrainScore = 0; reflexLastPlayedDate = nil
+        speedBestScore = 0; speedPlayCount = 0; speedBrainScore = 0
+        flankerBestAccuracy = 0; flankerPlayCount = 0; flankerBrainScore = 0; flankerLastPlayedDate = nil
+        spatialBestLevel = 0; spatialPlayCount = 0; spatialBrainScore = 0; spatialLastPlayedDate = nil
+        visualBestScore = 0; visualPlayCount = 0; visualBrainScore = 0; visualLastPlayedDate = nil
+        patternBestScore = 0; patternPlayCount = 0; patternBrainScore = 0; patternLastPlayedDate = nil
+        totalXP = 0; lastPlayedDate = nil; dailyStreakCount = 0; lastStreakDate = nil
+        unlockedAchievementIDs = ""
+        dailyChallengeDate = nil
+        dailyChallengeMemoryDone = false; dailyChallengeReflexDone = false
+        dailyChallengeSpeedDone = false; dailyChallengeFlankerDone = false
+        dailyChallengeSpatialDone = false; dailyChallengeVisualDone = false
+        dailyChallengePatternDone = false
+        milestoneOverall100 = false; milestoneOverall110 = false
+        milestoneOverall120 = false; milestoneOverall130 = false
+        milestoneLevel25 = false; milestoneLevel50 = false
+        milestoneLevel100 = false; milestoneLevel200 = false
+    }
+
     // MARK: - Derived
 
     var playerLevel: Int { totalXP / 100 + 1 }   // no cap — infinite progression

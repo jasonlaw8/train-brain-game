@@ -21,6 +21,7 @@ struct SettingsView: View {
     }
 
     @State private var showPermissionDeniedAlert = false
+    @State private var showClearHistoryConfirm = false
     @State private var notificationTime: Date = {
         var c = DateComponents(); c.hour = 9; c.minute = 0
         return Calendar.current.date(from: c) ?? Date()
@@ -95,6 +96,19 @@ struct SettingsView: View {
                 }
             }
 
+            // MARK: Data
+            Section {
+                Button(role: .destructive) {
+                    showClearHistoryConfirm = true
+                } label: {
+                    Label("Clear All History", systemImage: "trash.fill")
+                }
+            } header: {
+                Text("Data")
+            } footer: {
+                Text("Permanently deletes all scores, Brain Score history, XP, streaks, and achievements. This cannot be undone.")
+            }
+
             // MARK: About
             Section("About") {
                 LabeledContent("App") {
@@ -115,6 +129,12 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Clear All History?", isPresented: $showClearHistoryConfirm) {
+            Button("Clear Everything", role: .destructive) { clearHistory() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All scores, Brain Score history, XP, streaks, and achievements will be permanently deleted.")
+        }
         .alert("Notifications Disabled", isPresented: $showPermissionDeniedAlert) {
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -125,6 +145,13 @@ struct SettingsView: View {
         } message: {
             Text("To receive daily reminders, enable notifications for Train Brain in iOS Settings.")
         }
+    }
+
+    private func clearHistory() {
+        // Reset all stats on the PlayerStats record
+        stats.resetAllStats()
+        // Delete all GameSession history records
+        try? modelContext.delete(model: GameSession.self)
     }
 
     private func reschedule() {
