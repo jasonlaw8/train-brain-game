@@ -417,7 +417,9 @@ struct RadarChartView: View {
         let radius = min(size.width, size.height) / 2 - 28
         let n = values.count
         guard n > 0 else { return }
-        let angles: [Double] = (0..<n).map { Double($0) * (2 * .pi / Double(n)) - .pi / 2 }
+        let step: Double = 2.0 * Double.pi / Double(n)
+        let halfPi: Double = Double.pi / 2.0
+        let angles: [Double] = (0..<n).map { Double($0) * step - halfPi }
         drawGrid(ctx: ctx, center: center, radius: radius, angles: angles)
         drawAxes(ctx: ctx, center: center, radius: radius, angles: angles)
         drawData(ctx: ctx, center: center, radius: radius, angles: angles)
@@ -467,7 +469,8 @@ struct RadarChartView: View {
     }
 
     private func labelPosition(index: Int, total: Int, center: CGPoint, radius: Double) -> CGPoint {
-        let angle = Double(index) * (2 * .pi / Double(total)) - .pi / 2
+        let step: Double = 2.0 * Double.pi / Double(total)
+        let angle: Double = Double(index) * step - Double.pi / 2.0
         return CGPoint(x: center.x + radius * cos(angle),
                        y: center.y + radius * sin(angle))
     }
