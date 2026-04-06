@@ -18,6 +18,6 @@ struct TrainBrainApp: App {
                 OnboardingView { hasOnboarded = true }
             }
         }
-        .modelContainer(for: PlayerStats.self)
+        .modelContainer(for: [PlayerStats.self, GameSession.self])
     }
 }

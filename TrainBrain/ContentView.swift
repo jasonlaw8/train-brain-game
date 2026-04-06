@@ -1,10 +1,28 @@
 import SwiftUI
 import SwiftData
 
+// Root tab container. Onboarding is handled in TrainBrainApp before this view appears.
 struct ContentView: View {
+    var body: some View {
+        TabView {
+            HomeView()
+                .tabItem { Label("Home", systemImage: "house.fill") }
+            TrainView()
+                .tabItem { Label("Train", systemImage: "dumbbell.fill") }
+            ProgressView()
+                .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
+        }
+    }
+}
+
+// MARK: - HomeView
+
+struct HomeView: View {
     @Query private var statsQuery: [PlayerStats]
     @Environment(\.modelContext) private var modelContext
 
+    @State private var milestoneScore: Int? = nil
+    @State private var showMilestone = false
     @State private var prevLevel = 1
     @State private var showLevelUp = false
 
@@ -22,95 +40,29 @@ struct ContentView: View {
                 Color(.systemBackground).opacity(0.82).ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 0) {
-                        // Header
-                        VStack(spacing: 10) {
-                            Image(systemName: "brain")
-                                .font(.system(size: 64))
-                                .foregroundStyle(.blue)
-                            Text("Train Brain")
-                                .font(.largeTitle.bold())
-                            Text("Challenge your mind")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            if stats.dailyStreakCount > 0 {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "flame.fill")
-                                    Text("\(stats.dailyStreakCount) day streak")
-                                }
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 6)
-                                .background(Color.orange, in: Capsule())
-                            }
-                        }
-                        .padding(.top, 52)
-                        .padding(.bottom, 36)
-
-                        // Daily progress
-                        if stats.totalPlayCount > 0 {
-                            dailyProgressStrip
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 16)
-                        }
-
-                        // Game cards
-                        VStack(spacing: 16) {
-                            NavigationLink(destination: MemoryGameView()) {
-                                GameCard(
-                                    title: "Memory",
-                                    subtitle: "Repeat the sequence",
-                                    icon: "square.grid.3x3.fill",
-                                    color: .blue,
-                                    bestScore: stats.memoryBestScore > 0
-                                        ? "Best: \(stats.memoryBestScore) pts" : nil,
-                                    playedToday: stats.playedMemoryToday
-                                )
-                            }
-                            NavigationLink(destination: ColorGameView()) {
-                                GameCard(
-                                    title: "Color",
-                                    subtitle: "Stroop challenge",
-                                    icon: "paintpalette.fill",
-                                    color: .purple,
-                                    bestScore: stats.colorBestScore > 0
-                                        ? "Best: \(stats.colorBestScore) pts" : nil,
-                                    playedToday: stats.playedColorToday
-                                )
-                            }
-                            NavigationLink(destination: ReflexGameView()) {
-                                GameCard(
-                                    title: "Reflex",
-                                    subtitle: "Tap as fast as you can",
-                                    icon: "bolt.fill",
-                                    color: .orange,
-                                    bestScore: stats.reflexBestTimeMs > 0
-                                        ? String(format: "Best: %.0f ms", stats.reflexBestTimeMs) : nil,
-                                    playedToday: stats.playedReflexToday
-                                )
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 32)
-
-                        if stats.totalXP > 0 {
-                            levelStrip
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 32)
-                        }
+                    VStack(spacing: 24) {
+                        headerSection
+                        brainScoreSection
+                        if stats.totalPlayCount > 0 { dailyProgressStrip }
+                        dailyChallengesSection
+                        streakAndLevelSection
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 52)
+                    .padding(.bottom, 32)
                 }
 
-                // Level-up banner
+                if showMilestone, let ms = milestoneScore {
+                    MilestoneToast(score: ms)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(20)
+                }
                 if showLevelUp {
                     LevelUpBanner(level: stats.playerLevel)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .zIndex(10)
+                        .zIndex(19)
                 }
             }
-            .animation(.spring(response: 0.4), value: showLevelUp)
             .navigationBarHidden(true)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -133,7 +85,12 @@ struct ContentView: View {
                     }
                 }
             }
-            .onAppear { prevLevel = stats.playerLevel }
+            .animation(.spring(response: 0.4), value: showLevelUp)
+            .animation(.spring(response: 0.5), value: showMilestone)
+            .onAppear {
+                prevLevel = stats.playerLevel
+                checkMilestones()
+            }
             .onChange(of: stats.playerLevel) { _, newLevel in
                 guard newLevel > prevLevel else { return }
                 prevLevel = newLevel
@@ -146,13 +103,88 @@ struct ContentView: View {
         }
     }
 
+    // MARK: Header
+
+    var headerSection: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "brain")
+                .font(.system(size: 52))
+                .foregroundStyle(.blue)
+            Text("Train Brain")
+                .font(.largeTitle.bold())
+            Text("Challenge your mind daily")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if stats.dailyStreakCount > 0 {
+                HStack(spacing: 5) {
+                    Image(systemName: "flame.fill")
+                    Text("\(stats.dailyStreakCount) day streak")
+                }
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(Color.orange, in: Capsule())
+            }
+        }
+    }
+
+    // MARK: Brain Score Card
+
+    var brainScoreSection: some View {
+        VStack(spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Brain Score")
+                        .font(.subheadline.smallCaps())
+                        .foregroundStyle(.secondary)
+                    if stats.overallBrainScore > 0 {
+                        AnimatedScoreText(value: stats.overallBrainScore,
+                                          font: .system(size: 56, weight: .bold, design: .rounded),
+                                          color: .primary)
+                        Text(PlayerStats.percentileLabel(for: stats.overallBrainScore))
+                            .font(.caption.bold())
+                            .padding(.horizontal, 10).padding(.vertical, 4)
+                            .background(scoreColor(stats.overallBrainScore).opacity(0.15))
+                            .foregroundStyle(scoreColor(stats.overallBrainScore))
+                            .clipShape(Capsule())
+                    } else {
+                        Text("—")
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                        Text("Play all 3 metrics to unlock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 8) {
+                    metricBadge("Memory", score: stats.memoryBrainScore, color: .blue)
+                    metricBadge("Reflex", score: stats.reflexBrainScore, color: .orange)
+                    metricBadge("Speed",  score: stats.speedBrainScore,  color: .green)
+                }
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground).opacity(0.92),
+                        in: RoundedRectangle(cornerRadius: 20))
+        }
+    }
+
+    func metricBadge(_ name: String, score: Int, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Text(name).font(.caption).foregroundStyle(.secondary)
+            Text(score > 0 ? "\(score)" : "—")
+                .font(.caption.bold())
+                .foregroundStyle(score > 0 ? color : .secondary)
+        }
+    }
+
+    // MARK: Daily Progress Strip (game-card "played today" dots)
+
     var dailyProgressStrip: some View {
         HStack(spacing: 12) {
-            Image(systemName: "calendar")
-                .foregroundStyle(.secondary)
-                .font(.subheadline)
-            Text("Today")
-                .font(.subheadline.bold())
+            Image(systemName: "calendar").foregroundStyle(.secondary).font(.subheadline)
+            Text("Today").font(.subheadline.bold())
             Spacer()
             HStack(spacing: 8) {
                 DailyDot(icon: "square.grid.3x3.fill", color: .blue,   done: stats.playedMemoryToday)
@@ -160,40 +192,161 @@ struct ContentView: View {
                 DailyDot(icon: "bolt.fill",            color: .orange, done: stats.playedReflexToday)
             }
             Text("\(stats.dailyGamesCompleted)/3")
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
+                .font(.caption.bold()).foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color(.secondarySystemBackground).opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    var levelStrip: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    // MARK: Daily Challenges
+
+    var dailyChallengesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Level \(stats.playerLevel)", systemImage: "star.fill")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.indigo)
+                Text("Daily Challenges").font(.headline)
                 Spacer()
-                Text("\(stats.xpProgressInCurrentLevel) / 100 XP")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color(.systemGray5))
-                    Capsule()
-                        .fill(Color.indigo)
-                        .frame(width: geo.size.width * CGFloat(stats.xpProgressInCurrentLevel) / 100)
-                        .animation(.easeOut(duration: 0.5), value: stats.xpProgressInCurrentLevel)
+                if stats.allDailyChallengesDone {
+                    Label("All done!", systemImage: "checkmark.seal.fill")
+                        .font(.caption.bold()).foregroundStyle(.green)
                 }
             }
-            .frame(height: 6)
+            VStack(spacing: 10) {
+                challengeRow("Memory Training",  icon: "square.grid.3x3.fill", color: .blue,
+                             done: stats.dailyChallengeMemoryDone, destination: AnyView(MemoryGameView()))
+                challengeRow("Reflex Test",      icon: "bolt.fill",            color: .orange,
+                             done: stats.dailyChallengeReflexDone, destination: AnyView(ReflexGameView()))
+                challengeRow("Speed Sprint",     icon: "function",             color: .green,
+                             done: stats.dailyChallengeSpeedDone,  destination: AnyView(MathBlitzGameView()))
+            }
         }
         .padding()
-        .background(Color(.secondarySystemBackground).opacity(0.9), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    func challengeRow(_ title: String, icon: String, color: Color, done: Bool, destination: AnyView) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 14) {
+                Image(systemName: done ? "checkmark.circle.fill" : icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(done ? .green : color)
+                    .frame(width: 32)
+                    .animation(.spring(response: 0.4), value: done)
+                Text(title).font(.subheadline.bold()).foregroundStyle(done ? .secondary : .primary)
+                Spacer()
+                if done {
+                    Text("Done").font(.caption.bold()).foregroundStyle(.green)
+                } else {
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.caption.bold())
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Streak & Level
+
+    var streakAndLevelSection: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(stats.dailyStreakCount > 0 ? .orange : .secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(stats.dailyStreakCount)").font(.title3.bold())
+                    Text("day streak").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity).padding()
+            .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Label("Level \(stats.playerLevel)", systemImage: "star.fill")
+                        .font(.subheadline.bold()).foregroundStyle(.indigo)
+                    Spacer()
+                    Text("\(stats.xpProgressInCurrentLevel)/100 XP")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(.systemGray5))
+                        Capsule()
+                            .fill(Color.indigo)
+                            .frame(width: geo.size.width * CGFloat(stats.xpProgressInCurrentLevel) / 100)
+                            .animation(.easeOut(duration: 0.5), value: stats.xpProgressInCurrentLevel)
+                    }
+                }
+                .frame(height: 6)
+            }
+            .frame(maxWidth: .infinity).padding()
+            .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    // MARK: Helpers
+
+    func scoreColor(_ score: Int) -> Color {
+        if score >= 120 { return .green }
+        if score >= 100 { return .teal }
+        if score >= 85  { return .orange }
+        return .red
+    }
+
+    func checkMilestones() {
+        if let ms = stats.checkMilestones() {
+            milestoneScore = ms
+            withAnimation { showMilestone = true }
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                withAnimation { showMilestone = false }
+            }
+        }
     }
 }
+
+// MARK: - Milestone Toast
+
+struct MilestoneToast: View {
+    let score: Int
+    var body: some View {
+        VStack {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.filled.head.profile")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Brain Score Milestone!")
+                        .font(.subheadline.bold())
+                    Text("You hit \(score) — \(PlayerStats.percentileLabel(for: score))")
+                        .font(.caption)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 20).padding(.vertical, 14)
+            .background(
+                Capsule().fill(LinearGradient(colors: [.indigo, .blue],
+                                              startPoint: .leading, endPoint: .trailing))
+            )
+            .shadow(color: .indigo.opacity(0.4), radius: 12)
+            .padding(.top, 8)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - DailyDot
+
+struct DailyDot: View {
+    let icon: String
+    let color: Color
+    let done: Bool
+
+    var body: some View {
+        Image(systemName: done ? "checkmark.circle.fill" : icon)
+            .font(.system(size: 18))
+            .foregroundStyle(done ? .green : color.opacity(0.4))
+    }
+}
+
+// MARK: - GameCard
 
 struct GameCard: View {
     let title: String
@@ -202,6 +355,7 @@ struct GameCard: View {
     let color: Color
     var bestScore: String? = nil
     var playedToday: Bool = false
+    var brainScore: Int? = nil
 
     var body: some View {
         HStack(spacing: 16) {
@@ -222,47 +376,31 @@ struct GameCard: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.title2.bold())
-                    .foregroundStyle(Color.primary)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.secondary)
+                Text(title).font(.title2.bold()).foregroundStyle(.primary)
+                Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                 if let best = bestScore {
-                    Text(best)
-                        .font(.caption.bold())
-                        .foregroundStyle(color)
+                    Text(best).font(.caption.bold()).foregroundStyle(color)
                 }
             }
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.secondary)
-                .font(.subheadline.bold())
+            if let bs = brainScore, bs > 0 {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(bs)").font(.title3.bold()).foregroundStyle(color)
+                    Text("score").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+
+            Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.subheadline.bold())
         }
         .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground).opacity(0.92))
-        )
+        .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground).opacity(0.92)))
         .buttonStyle(.plain)
     }
 }
 
-struct DailyDot: View {
-    let icon: String
-    let color: Color
-    let done: Bool
-
-    var body: some View {
-        Image(systemName: done ? "checkmark.circle.fill" : icon)
-            .font(.system(size: 18))
-            .foregroundStyle(done ? .green : color.opacity(0.4))
-    }
-}
-
-#Preview {
+#Preview("Main App") {
     ContentView()
-        .modelContainer(for: PlayerStats.self, inMemory: true)
+        .modelContainer(for: [PlayerStats.self, GameSession.self], inMemory: true)
 }

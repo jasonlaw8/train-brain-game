@@ -197,9 +197,15 @@ struct ColorGameView: View {
         .onAppear {
             vm.onGameOver = { score, streak in
                 let isNewBest = score > stats.colorBestScore
+                let session = GameSession(
+                    gameType: "color",
+                    rawScore: score,
+                    brainScore: 0,  // color is training-only, no normalized score
+                    difficulty: difficulty.rawValue
+                )
+                modelContext.insert(session)
                 let leveledUp = stats.recordColorGame(score: score, streak: streak)
                 let newAchievements = checkAndUnlock(stats: stats)
-
                 if isNewBest && score > 0 {
                     vm.showNewBest = true
                     Haptics.success()
@@ -404,5 +410,5 @@ struct ColorGameView: View {
 
 #Preview {
     NavigationStack { ColorGameView() }
-        .modelContainer(for: PlayerStats.self, inMemory: true)
+        .modelContainer(for: [PlayerStats.self, GameSession.self], inMemory: true)
 }

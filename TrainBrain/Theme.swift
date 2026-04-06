@@ -34,6 +34,15 @@ enum Difficulty: String, CaseIterable, Codable {
         switch self { case .easy: 104; case .medium: 88; case .hard: 64 }
     }
 
+    // Math Blitz: describes the operation set per difficulty
+    var speedDescription: String {
+        switch self {
+        case .easy:   return "Addition only (1–9)"
+        case .medium: return "Addition & subtraction (1–20)"
+        case .hard:   return "Add, subtract & multiply (1–12)"
+        }
+    }
+
     var description: String {
         switch self {
         case .easy:   return "Slower pace, more time"
