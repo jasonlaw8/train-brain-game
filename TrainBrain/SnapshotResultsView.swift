@@ -124,46 +124,56 @@ struct SnapshotResultsView: View {
     }
 
     func domainBar(label: String, pct: Int, icon: String, color: Color, revealStep: Int) -> some View {
+        let isRevealed = revealed >= revealStep
         let labelText = SnapshotNorms.domainLabel(percentile: pct)
         let labelColor = domainLabelColor(labelText)
+        let fillFraction: CGFloat = CGFloat(pct) / 100.0
 
         return VStack(spacing: 0) {
-            if revealed >= revealStep {
-                HStack(spacing: 10) {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(color)
-                        .frame(width: 24)
-
-                    Text(label).font(.subheadline)
-                    Spacer()
-                    Text(labelText)
-                        .font(.caption.bold())
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(labelColor.opacity(0.15))
-                        .foregroundStyle(labelColor)
-                        .clipShape(Capsule())
-                    Text("\(pct)th")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.bottom, 6)
-
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color(.systemGray5))
-                        Capsule()
-                            .fill(color)
-                            .frame(width: geo.size.width * CGFloat(pct) / 100)
-                            .animation(.easeOut(duration: 0.7), value: pct)
-                    }
-                }
-                .frame(height: 8)
+            if isRevealed {
+                domainBarHeader(label: label, icon: icon, color: color,
+                                labelText: labelText, labelColor: labelColor, pct: pct)
+                domainBarFill(color: color, fraction: fillFraction)
             }
         }
-        .frame(minHeight: revealed >= revealStep ? 48 : 0)
+        .frame(minHeight: isRevealed ? 48 : 0)
         .transition(.opacity.combined(with: .move(edge: .leading)))
-        .animation(.spring(response: 0.5), value: revealed >= revealStep)
+        .animation(.spring(response: 0.5), value: isRevealed)
+    }
+
+    private func domainBarHeader(label: String, icon: String, color: Color,
+                                  labelText: String, labelColor: Color, pct: Int) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 24)
+            Text(label).font(.subheadline)
+            Spacer()
+            Text(labelText)
+                .font(.caption.bold())
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(labelColor.opacity(0.15))
+                .foregroundStyle(labelColor)
+                .clipShape(Capsule())
+            Text("\(pct)th")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.bottom, 6)
+    }
+
+    private func domainBarFill(color: Color, fraction: CGFloat) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color(.systemGray5))
+                Capsule()
+                    .fill(color)
+                    .frame(width: geo.size.width * fraction)
+            }
+        }
+        .frame(height: 8)
+        .animation(.easeOut(duration: 0.7), value: fraction)
     }
 
     func domainLabelColor(_ label: String) -> Color {

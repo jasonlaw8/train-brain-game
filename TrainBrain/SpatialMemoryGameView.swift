@@ -77,7 +77,7 @@ class SpatialMemoryViewModel: ObservableObject {
         wrongCell = nil
 
         // Pick `level` distinct random cells
-        var indices = Array(0..<totalCells).shuffled()
+        let indices = Array(0..<totalCells).shuffled()
         let chosen = Set(indices.prefix(level))
         targetCells = chosen
 
