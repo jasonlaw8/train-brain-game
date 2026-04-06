@@ -468,19 +468,21 @@ struct RadarChartView: View {
         }
     }
 
-    @ViewBuilder
+    private func labelPosition(index: Int, total: Int, center: CGPoint, radius: Double) -> CGPoint {
+        let angle = Double(index) * (2 * .pi / Double(total)) - .pi / 2
+        return CGPoint(x: center.x + radius * cos(angle),
+                       y: center.y + radius * sin(angle))
+    }
+
     private func axisLabels(in size: CGSize) -> some View {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let radius = min(size.width, size.height) / 2 - 10
-        let n = labels.count
-        ForEach(0..<n, id: \.self) { i in
-            let angle = Double(i) * (2 * .pi / Double(n)) - .pi / 2
-            let pt = CGPoint(x: center.x + radius * cos(angle),
-                             y: center.y + radius * sin(angle))
-            Text(labels[i])
+        return ForEach(0..<labels.count, id: \.self) { i in
+            Text(self.labels[i])
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .position(pt)
+                .position(self.labelPosition(index: i, total: self.labels.count,
+                                             center: center, radius: radius))
         }
     }
 }
