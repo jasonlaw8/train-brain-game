@@ -110,7 +110,18 @@ struct ColorGameView: View {
             HStack {
                 StatBadge(label: "Score", value: "\(vm.score)", color: .purple)
                 Spacer()
-                StatBadge(label: "Streak", value: "🔥 \(vm.streak)", color: .orange)
+                // Streak badge with SF Symbol flame
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Streak")
+                        .font(.caption.smallCaps())
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                        Text("\(vm.streak)")
+                    }
+                    .font(.title2.bold())
+                    .foregroundStyle(.orange)
+                }
             }
             .padding(.horizontal)
             .padding(.top, 8)
@@ -134,8 +145,9 @@ struct ColorGameView: View {
         VStack(spacing: 0) {
             Spacer()
             VStack(spacing: 16) {
-                Text("🎨")
-                    .font(.system(size: 80))
+                Image(systemName: "paintpalette.fill")
+                    .font(.system(size: 72))
+                    .foregroundStyle(.purple)
                 Text("Stroop Challenge")
                     .font(.largeTitle.bold())
                 Text("Tap the COLOR the word is written in\n— not what it says!")
@@ -234,18 +246,27 @@ struct ColorGameView: View {
 
                 VStack(spacing: 12) {
                     resultRow(label: "Final Score", value: "\(vm.score)", color: .purple)
-                    resultRow(label: "Best Streak", value: "🔥 \(vm.bestStreak)", color: .orange)
+                    HStack {
+                        Text("Best Streak").foregroundStyle(.secondary)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                            Text("\(vm.bestStreak)")
+                        }
+                        .font(.title3.bold())
+                        .foregroundStyle(.orange)
+                    }
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
                 if vm.score >= 100 {
-                    Text("🏆 Excellent!")
+                    Label("Excellent!", systemImage: "trophy.fill")
                         .font(.title3.bold())
                         .foregroundStyle(.yellow)
                 } else if vm.score >= 60 {
-                    Text("👍 Good job!")
+                    Label("Good job!", systemImage: "hand.thumbsup.fill")
                         .font(.title3.bold())
                         .foregroundStyle(.green)
                 }

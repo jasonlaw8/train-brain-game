@@ -8,8 +8,9 @@ struct ContentView: View {
 
                 VStack(spacing: 0) {
                     VStack(spacing: 8) {
-                        Text("🧠")
-                            .font(.system(size: 72))
+                        Image(systemName: "brain")
+                            .font(.system(size: 64))
+                            .foregroundStyle(.blue)
                         Text("Train Brain")
                             .font(.largeTitle.bold())
                         Text("Challenge your mind")
@@ -24,7 +25,7 @@ struct ContentView: View {
                             GameCard(
                                 title: "Memory",
                                 subtitle: "Repeat the sequence",
-                                icon: "🔢",
+                                icon: "square.grid.3x3.fill",
                                 color: .blue
                             )
                         }
@@ -32,7 +33,7 @@ struct ContentView: View {
                             GameCard(
                                 title: "Color",
                                 subtitle: "Stroop challenge",
-                                icon: "🎨",
+                                icon: "paintpalette.fill",
                                 color: .purple
                             )
                         }
@@ -40,7 +41,7 @@ struct ContentView: View {
                             GameCard(
                                 title: "Reflex",
                                 subtitle: "Tap as fast as you can",
-                                icon: "⚡️",
+                                icon: "bolt.fill",
                                 color: .orange
                             )
                         }
@@ -58,13 +59,14 @@ struct ContentView: View {
 struct GameCard: View {
     let title: String
     let subtitle: String
-    let icon: String
+    let icon: String      // SF Symbol name
     let color: Color
 
     var body: some View {
         HStack(spacing: 16) {
-            Text(icon)
-                .font(.system(size: 36))
+            Image(systemName: icon)
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(color)
                 .frame(width: 60, height: 60)
                 .background(color.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 14))

@@ -258,8 +258,9 @@ struct ReflexGameView: View {
 
     var introContent: some View {
         VStack(spacing: 16) {
-            Text("⚡️")
-                .font(.system(size: 80))
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 72))
+                .foregroundStyle(.orange)
             Text("Reflex Test")
                 .font(.largeTitle.bold())
             Text("Tap the circle as fast as you can.\n\(ReflexGameViewModel.totalRounds) rounds — don't tap too early!")
