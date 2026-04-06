@@ -404,73 +404,83 @@ struct RadarChartView: View {
     var body: some View {
         ZStack {
             Canvas { ctx, size in
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                let radius = min(size.width, size.height) / 2 - 28
-                let n = values.count
-                let angles = (0..<n).map { i in
-                    Double(i) * (2 * .pi / Double(n)) - .pi / 2
-                }
-
-                // Grid rings at 25%, 50%, 75%, 100%
-                for ring in [0.25, 0.50, 0.75, 1.0] {
-                    var ringPath = Path()
-                    for (i, angle) in angles.enumerated() {
-                        let r = radius * ring
-                        let pt = CGPoint(x: center.x + r * cos(angle),
-                                         y: center.y + r * sin(angle))
-                        i == 0 ? ringPath.move(to: pt) : ringPath.addLine(to: pt)
-                    }
-                    ringPath.closeSubpath()
-                    ctx.stroke(ringPath, with: .color(.gray.opacity(0.2)), lineWidth: 1)
-                }
-
-                // Axis lines
-                for angle in angles {
-                    var axisPath = Path()
-                    axisPath.move(to: center)
-                    axisPath.addLine(to: CGPoint(x: center.x + radius * cos(angle),
-                                                  y: center.y + radius * sin(angle)))
-                    ctx.stroke(axisPath, with: .color(.gray.opacity(0.2)), lineWidth: 1)
-                }
-
-                // Data polygon
-                guard !values.isEmpty else { return }
-                var dataPath = Path()
-                for (i, angle) in angles.enumerated() {
-                    let r = radius * (values[i] / 100.0)
-                    let pt = CGPoint(x: center.x + r * cos(angle),
-                                     y: center.y + r * sin(angle))
-                    i == 0 ? dataPath.move(to: pt) : dataPath.addLine(to: pt)
-                }
-                dataPath.closeSubpath()
-                ctx.fill(dataPath, with: .color(color.opacity(0.25)))
-                ctx.stroke(dataPath, with: .color(color), lineWidth: 2.5)
-
-                // Data points
-                for (i, angle) in angles.enumerated() {
-                    let r = radius * (values[i] / 100.0)
-                    let pt = CGPoint(x: center.x + r * cos(angle),
-                                     y: center.y + r * sin(angle))
-                    let dot = Path(ellipseIn: CGRect(x: pt.x - 4, y: pt.y - 4, width: 8, height: 8))
-                    ctx.fill(dot, with: .color(color))
-                }
+                self.drawRadar(ctx: ctx, size: size)
             }
-
-            // Axis labels
             GeometryReader { geo in
-                let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-                let radius = min(geo.size.width, geo.size.height) / 2 - 10
-                let n = labels.count
-                ForEach(0..<n, id: \.self) { i in
-                    let angle = Double(i) * (2 * .pi / Double(n)) - .pi / 2
-                    let pt = CGPoint(x: center.x + radius * cos(angle),
-                                      y: center.y + radius * sin(angle))
-                    Text(labels[i])
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .position(pt)
-                }
+                axisLabels(in: geo.size)
             }
+        }
+    }
+
+    private func drawRadar(ctx: GraphicsContext, size: CGSize) {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let radius = min(size.width, size.height) / 2 - 28
+        let n = values.count
+        guard n > 0 else { return }
+        let angles = (0..<n).map { i in
+            Double(i) * (2 * .pi / Double(n)) - .pi / 2
+        }
+        drawGrid(ctx: ctx, center: center, radius: radius, angles: angles)
+        drawAxes(ctx: ctx, center: center, radius: radius, angles: angles)
+        drawData(ctx: ctx, center: center, radius: radius, angles: angles)
+    }
+
+    private func drawGrid(ctx: GraphicsContext, center: CGPoint, radius: Double, angles: [Double]) {
+        for ring in [0.25, 0.50, 0.75, 1.0] {
+            var path = Path()
+            for (i, angle) in angles.enumerated() {
+                let r = radius * ring
+                let pt = CGPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle))
+                i == 0 ? path.move(to: pt) : path.addLine(to: pt)
+            }
+            path.closeSubpath()
+            ctx.stroke(path, with: .color(.gray.opacity(0.2)), lineWidth: 1)
+        }
+    }
+
+    private func drawAxes(ctx: GraphicsContext, center: CGPoint, radius: Double, angles: [Double]) {
+        for angle in angles {
+            var path = Path()
+            path.move(to: center)
+            path.addLine(to: CGPoint(x: center.x + radius * cos(angle),
+                                     y: center.y + radius * sin(angle)))
+            ctx.stroke(path, with: .color(.gray.opacity(0.2)), lineWidth: 1)
+        }
+    }
+
+    private func drawData(ctx: GraphicsContext, center: CGPoint, radius: Double, angles: [Double]) {
+        guard !values.isEmpty else { return }
+        var dataPath = Path()
+        for (i, angle) in angles.enumerated() {
+            let r = radius * (values[i] / 100.0)
+            let pt = CGPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle))
+            i == 0 ? dataPath.move(to: pt) : dataPath.addLine(to: pt)
+        }
+        dataPath.closeSubpath()
+        ctx.fill(dataPath, with: .color(color.opacity(0.25)))
+        ctx.stroke(dataPath, with: .color(color), lineWidth: 2.5)
+
+        for (i, angle) in angles.enumerated() {
+            let r = radius * (values[i] / 100.0)
+            let pt = CGPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle))
+            let dot = Path(ellipseIn: CGRect(x: pt.x - 4, y: pt.y - 4, width: 8, height: 8))
+            ctx.fill(dot, with: .color(color))
+        }
+    }
+
+    @ViewBuilder
+    private func axisLabels(in size: CGSize) -> some View {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let radius = min(size.width, size.height) / 2 - 10
+        let n = labels.count
+        ForEach(0..<n, id: \.self) { i in
+            let angle = Double(i) * (2 * .pi / Double(n)) - .pi / 2
+            let pt = CGPoint(x: center.x + radius * cos(angle),
+                             y: center.y + radius * sin(angle))
+            Text(labels[i])
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .position(pt)
         }
     }
 }
