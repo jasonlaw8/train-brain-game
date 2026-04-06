@@ -63,6 +63,7 @@ final class PlayerStats {
     var playedMemoryToday: Bool { isToday(memoryLastPlayedDate) }
     var playedColorToday:  Bool { isToday(colorLastPlayedDate) }
     var playedReflexToday: Bool { isToday(reflexLastPlayedDate) }
+    var dailyGamesCompleted: Int { [playedMemoryToday, playedColorToday, playedReflexToday].filter { $0 }.count }
 
     private func isToday(_ date: Date?) -> Bool {
         guard let date else { return false }
