@@ -39,7 +39,7 @@ struct SnapshotScoringEngine {
     static func flankerScore(accuracy: Double, medianIncongruentRT: Double) -> Double {
         if accuracy > 0.80 {
             let rtComponent = medianIncongruentRT > 0 ? (1.0 / medianIncongruentRT) * 2000 : 0
-            return min(10.0, accuracy * 0.125 + rtComponent)
+            return min(10.0, accuracy * 2.5 + rtComponent)
         } else {
             return accuracy * 5.0
         }

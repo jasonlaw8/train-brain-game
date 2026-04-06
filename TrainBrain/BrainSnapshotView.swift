@@ -239,7 +239,7 @@ struct BrainSnapshotView: View {
     var scoringView: some View {
         VStack(spacing: 20) {
             Spacer()
-            ProgressView()
+            SwiftUI.ProgressView()
                 .scaleEffect(1.5)
                 .tint(.purple)
             Text("Calculating your Brain Score…")
@@ -251,7 +251,7 @@ struct BrainSnapshotView: View {
     // MARK: - Compute & save
 
     func computeAndSave() {
-        Task {
+        Task { @MainActor in
             // Give the scoring view time to render
             try? await Task.sleep(for: .milliseconds(600))
 
@@ -315,17 +315,13 @@ struct BrainSnapshotView: View {
             let newAchievements = checkAndUnlock(stats: stats)
             if let first = newAchievements.first {
                 try? await Task.sleep(for: .milliseconds(500))
-                await MainActor.run {
-                    unlockedAchievement = first
-                    Haptics.success()
-                }
+                unlockedAchievement = first
+                Haptics.success()
                 try? await Task.sleep(for: .seconds(3))
-                await MainActor.run { unlockedAchievement = nil }
+                unlockedAchievement = nil
             }
 
-            await MainActor.run {
-                withAnimation { phase = .results(session) }
-            }
+            withAnimation { phase = .results(session) }
         }
     }
 
