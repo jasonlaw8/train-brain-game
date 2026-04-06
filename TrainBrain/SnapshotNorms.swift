@@ -58,7 +58,7 @@ struct SnapshotNorms {
     // MARK: d-prime norms (Card Match n-back)
     // Higher = better
     // Source: Published working memory norms (Cogstate One Back)
-    private static let dPrimeNorms: [String: [(pct: Int, dp: Double)]] = [
+    private static let dPrimeNorms: [String: [(pct: Int, score: Double)]] = [
         "18-24": [(10,0.5),(25,1.0),(50,1.7),(75,2.4),(90,3.0)],
         "25-34": [(10,0.4),(25,0.9),(50,1.6),(75,2.3),(90,2.9)],
         "35-44": [(10,0.3),(25,0.8),(50,1.5),(75,2.1),(90,2.7)],
