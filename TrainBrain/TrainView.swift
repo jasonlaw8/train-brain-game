@@ -21,6 +21,10 @@ struct TrainView: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
+
+                        // BRAIN SNAPSHOT featured card (always at the top)
+                        brainSnapshotFeaturedCard
+
                         // MEMORY domain
                         domainSection(
                             title: "Memory",
@@ -174,6 +178,74 @@ struct TrainView: View {
             .navigationTitle("Train")
             .navigationBarTitleDisplayMode(.large)
         }
+    }
+
+    // MARK: - Brain Snapshot featured card
+
+    var brainSnapshotFeaturedCard: some View {
+        NavigationLink(destination: BrainSnapshotView()) {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.purple.opacity(0.85), Color.blue.opacity(0.9)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("ASSESSMENT")
+                                .font(.caption.bold().smallCaps())
+                        }
+                        .foregroundStyle(.white.opacity(0.75))
+
+                        Text("Brain Snapshot")
+                            .font(.title2.bold())
+                            .foregroundStyle(.white)
+
+                        Text("4 min · 4 cognitive domains")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.8))
+
+                        if stats.bestBrainScore > 0 {
+                            Label("Best: \(stats.bestBrainScore) / 1000", systemImage: "star.fill")
+                                .font(.caption.bold())
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(.top, 2)
+                        }
+
+                        if !stats.canTakeSnapshot {
+                            Label("Next in \(stats.snapshotCooldownRemaining)",
+                                  systemImage: "clock")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.75))
+                        }
+                    }
+
+                    Spacer()
+
+                    VStack(spacing: 8) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 44))
+                            .foregroundStyle(.white.opacity(0.9))
+
+                        if stats.canTakeSnapshot {
+                            Text("Take Snapshot")
+                                .font(.caption.bold())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(.white.opacity(0.25), in: Capsule())
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

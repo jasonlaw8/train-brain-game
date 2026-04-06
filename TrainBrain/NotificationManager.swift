@@ -68,4 +68,43 @@ final class NotificationManager {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [reminderID])
     }
+
+    // MARK: - Brain Snapshot reminders
+
+    private let snapshotReminderID = "snapshot_reminder"
+
+    // Notification copy variants (rotate by session count)
+    private let snapshotCopies = [
+        "Your weekly Brain Snapshot is ready. How much did your training pay off?",
+        "Time for your brain check-in. Just 4 minutes to see your progress.",
+        "Ready for your Brain Snapshot? See how your training is paying off.",
+        "Your training streak suggests your scores might be up. Take your Snapshot to find out."
+    ]
+
+    /// Schedules the next Brain Snapshot reminder.
+    /// - sessionCount: used to rotate notification copy and determine weekly vs. biweekly cadence.
+    /// - daysFromNow: how many days until the reminder fires (typically 7 or 14).
+    func scheduleSnapshotReminder(sessionCount: Int, daysFromNow: Int = 7) {
+        cancelSnapshotReminder()
+
+        let content = UNMutableNotificationContent()
+        content.title = "Brain Snapshot"
+        content.body = snapshotCopies[sessionCount % snapshotCopies.count]
+        content.sound = .default
+
+        let seconds = TimeInterval(daysFromNow * 86400)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(60, seconds), repeats: false)
+
+        let request = UNNotificationRequest(
+            identifier: snapshotReminderID,
+            content: content,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    func cancelSnapshotReminder() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [snapshotReminderID])
+    }
 }

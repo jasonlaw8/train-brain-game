@@ -35,6 +35,6 @@ struct TrainBrainApp: App {
                 }
             }
         }
-        .modelContainer(for: [PlayerStats.self, GameSession.self])
+        .modelContainer(for: [PlayerStats.self, GameSession.self, SnapshotSession.self])
     }
 }

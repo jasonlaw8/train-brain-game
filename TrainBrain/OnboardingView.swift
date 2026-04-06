@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - OnboardingView
 // Brain-facts intro slides (our content) + animated game-demo pages (polished interactive previews).
@@ -7,18 +8,30 @@ import SwiftUI
 struct OnboardingView: View {
     var onComplete: () -> Void
 
-    @State private var currentPage = 0
+    @Environment(\.modelContext) private var modelContext
+    @Query private var statsQuery: [PlayerStats]
 
-    // Pages: 0-2 = brain facts, 3-10 = animated game demos (Memory, Color, Spatial, Flanker, Reflex, Math Blitz, Visual, Pattern)
-    private let totalPages = 11
+    private var stats: PlayerStats {
+        if let s = statsQuery.first { return s }
+        let s = PlayerStats()
+        modelContext.insert(s)
+        return s
+    }
+
+    @State private var currentPage = 0
+    @State private var selectedAgeRange: String = ""
+    @State private var launchSnapshot = false
+
+    // Pages: 0-2 = brain facts, 3 = age range, 4-11 = game demos, 12 = brain snapshot intro
+    private let totalPages = 13
 
     var body: some View {
         ZStack(alignment: .top) {
             AnimatedGradientBackground().ignoresSafeArea()
             Color(.systemBackground).opacity(0.88).ignoresSafeArea()
 
-            // Skip button (not on last page)
-            if currentPage < totalPages - 1 {
+            // Skip button (not on last two pages)
+            if currentPage < totalPages - 2 {
                 HStack {
                     Spacer()
                     Button("Skip") {
@@ -46,7 +59,7 @@ struct OnboardingView: View {
                 BrainFactSlide(
                     icon: "chart.line.uptrend.xyaxis", iconColor: .indigo,
                     title: "Track Your Brain Score",
-                    message: "Train Brain measures three core cognitive metrics — Memory, Reflex Speed, and Processing Speed — and gives you a single Brain Score. 100 is average.",
+                    message: "Train Brain measures four cognitive domains and gives you a Brain Score from 0 to 1000. Compare to people your age.",
                     fact: "Studies show that tracking progress increases training consistency by up to 40%."
                 ) { withAnimation { currentPage += 1 } }
                     .tag(1)
@@ -59,30 +72,52 @@ struct OnboardingView: View {
                 ) { withAnimation { currentPage += 1 } }
                     .tag(2)
 
+                // Age range page (for norm-referenced scoring)
+                AgeRangeOnboardingPage(selectedAgeRange: $selectedAgeRange) {
+                    if !selectedAgeRange.isEmpty {
+                        stats.ageRange = selectedAgeRange
+                    }
+                    withAnimation { currentPage += 1 }
+                }
+                .tag(3)
+
                 // Animated game-demo pages
                 MemoryOnboardingPage()
-                    .tag(3)
-
-                ColorOnboardingPage()
                     .tag(4)
 
-                SpatialMemoryOnboardingPage()
+                ColorOnboardingPage()
                     .tag(5)
 
-                FlankerOnboardingPage()
+                SpatialMemoryOnboardingPage()
                     .tag(6)
 
-                ReflexOnboardingPage()
+                FlankerOnboardingPage()
                     .tag(7)
 
-                MathBlitzOnboardingPage()
+                ReflexOnboardingPage()
                     .tag(8)
 
-                VisualSearchOnboardingPage()
+                MathBlitzOnboardingPage()
                     .tag(9)
 
-                PatternMatchOnboardingPage(onComplete: onComplete)
+                VisualSearchOnboardingPage()
                     .tag(10)
+
+                PatternMatchOnboardingPage(onComplete: { withAnimation { currentPage += 1 } })
+                    .tag(11)
+
+                // Brain Snapshot intro — final page
+                BrainSnapshotOnboardingPage(
+                    ageRange: selectedAgeRange,
+                    onStartSnapshot: {
+                        // Persist age range to PlayerStats before completing onboarding
+                        if !selectedAgeRange.isEmpty {
+                            stats.ageRange = selectedAgeRange
+                        }
+                        onComplete()
+                    }
+                )
+                .tag(12)
             }
             .tabViewStyle(.page)
             .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -735,6 +770,167 @@ private struct PatternMatchOnboardingPage: View {
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { showAnswer() }
+    }
+}
+
+// MARK: - Page: Age Range (norm-referenced scoring)
+
+private struct AgeRangeOnboardingPage: View {
+    @Binding var selectedAgeRange: String
+    let onNext: () -> Void
+
+    private let ageRanges = ["18-24", "25-34", "35-44", "45-54", "55+"]
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "person.crop.circle.badge.checkmark")
+                .font(.system(size: 64))
+                .foregroundStyle(.indigo)
+
+            VStack(spacing: 10) {
+                Text("What's Your Age Range?")
+                    .font(.largeTitle.bold())
+                    .multilineTextAlignment(.center)
+                Text("We use this to compare your Brain Score with people your age. Your data stays on your device.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(ageRanges, id: \.self) { range in
+                    Button {
+                        selectedAgeRange = range
+                    } label: {
+                        HStack {
+                            Text(range)
+                                .font(.body.bold())
+                            Spacer()
+                            if selectedAgeRange == range {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.indigo)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(selectedAgeRange == range
+                                      ? Color.indigo.opacity(0.12)
+                                      : Color(.secondarySystemBackground))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(selectedAgeRange == range
+                                                ? Color.indigo.opacity(0.5) : Color.clear, lineWidth: 1.5)
+                                )
+                        )
+                        .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 32)
+
+            Spacer()
+            Spacer()
+
+            Button(action: onNext) {
+                HStack(spacing: 6) {
+                    Text(selectedAgeRange.isEmpty ? "Skip for now" : "Continue")
+                    Image(systemName: "chevron.right")
+                }
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 36)
+                .padding(.vertical, 16)
+                .background(Color.indigo, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 48)
+        }
+        .padding(.horizontal, 24)
+    }
+}
+
+// MARK: - Page: Brain Snapshot intro (final onboarding page)
+
+private struct BrainSnapshotOnboardingPage: View {
+    let ageRange: String
+    let onStartSnapshot: () -> Void
+
+    @State private var iconBounce = false
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 72))
+                .foregroundStyle(
+                    LinearGradient(colors: [.purple, .blue],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .symbolEffect(.bounce, value: iconBounce)
+                .onAppear { iconBounce.toggle() }
+
+            VStack(spacing: 10) {
+                Text("Your Brain Snapshot")
+                    .font(.largeTitle.bold())
+                    .multilineTextAlignment(.center)
+                Text("4 quick tasks to measure your baseline across all four cognitive domains. Takes about 4 minutes.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                snapshotPoint(icon: "bolt.fill", color: .orange,
+                              text: "Lightning Tap — Processing Speed")
+                snapshotPoint(icon: "arrow.left.and.right", color: .indigo,
+                              text: "Arrow Storm — Attention & Focus")
+                snapshotPoint(icon: "rectangle.portrait.on.rectangle.portrait.fill", color: .blue,
+                              text: "Card Match — Working Memory")
+                snapshotPoint(icon: "square.on.circle.fill", color: .purple,
+                              text: "Shape Shift — Cognitive Flexibility")
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground).opacity(0.9),
+                        in: RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 24)
+
+            Spacer()
+            Spacer()
+
+            Button(action: onStartSnapshot) {
+                Text("Let's Go!")
+                    .font(.title3.bold()).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 16)
+                    .background(
+                        LinearGradient(colors: [.purple, .blue],
+                                       startPoint: .leading, endPoint: .trailing),
+                        in: RoundedRectangle(cornerRadius: 16)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 32)
+            .padding(.bottom, 48)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    func snapshotPoint(icon: String, color: Color, text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 28)
+            Text(text).font(.subheadline)
+            Spacer()
+        }
     }
 }
 
