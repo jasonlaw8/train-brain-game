@@ -1,9 +1,8 @@
 import SwiftUI
 import SwiftData
 
-// Flanker Task: five arrows displayed in a row. Tap LEFT or RIGHT based on the CENTER arrow only.
-// Flanking arrows may conflict (incongruent) or agree (congruent) with the center.
-// 60-second timer, score = number of correct taps.
+// Fish School — Flanker attention task with fish symbols, swipe gestures, 60-second timer,
+// combo scoring, Elo-driven difficulty, and dynamic ocean background.
 
 // MARK: - ViewModel
 
@@ -11,127 +10,160 @@ import SwiftData
 class FlankerGameViewModel: ObservableObject {
     @Published var gameState: GameState = .idle
     @Published var timeRemaining: Double = 60
-    @Published var score: Int = 0           // correct answers
+    @Published var totalScore: Int = 0
+    @Published var correctCount: Int = 0
     @Published var wrongCount: Int = 0
-    @Published var lastCorrect: Bool? = nil  // nil=unanswered, true/false for brief flash
-    @Published var showNewBest = false
-    @Published var unlockedAchievement: Achievement? = nil
-    @Published var leveledUpTo: Int? = nil
-    @Published var finalScore: Int = 0
-    @Published var finalBrainScore: Int = 0
-
-    // Current trial
-    @Published var arrows: [Arrow] = []
+    @Published var lastCorrect: Bool? = nil
+    @Published var isCongruent: Bool = true      // current trial type
+    @Published var fishDirections: [Direction] = []
     @Published var centerDirection: Direction = .right
+    @Published var bounceCenter: Bool = false
+    @Published var showHint: Bool = true          // shown only on first trial
+
+    private var trialCount: Int = 0
 
     enum Direction { case left, right }
-
-    struct Arrow {
-        let direction: Direction
-        let isCenter: Bool
-    }
-
     enum GameState { case idle, playing, gameOver }
 
-    var accuracy: Int {
-        let total = score + wrongCount
-        guard total > 0 else { return 100 }
-        return score * 100 / total
+    var accuracy: Double {
+        let total = correctCount + wrongCount
+        guard total > 0 else { return 1.0 }
+        return Double(correctCount) / Double(total)
     }
 
-    var onGameOver: ((Int) -> Void)?  // passes accuracy %
+    var accuracyPercent: Int { Int((accuracy * 100).rounded()) }
 
-    private var timer: Timer?
-    private var difficulty: Difficulty = .medium
-    private var flashTask: Task<Void, Never>?
+    var accuracyBonus: Int {
+        if accuracy > 0.95 { return 100 }
+        if accuracy > 0.90 { return 50 }
+        return 0
+    }
 
-    func startGame(difficulty: Difficulty) {
-        self.difficulty = difficulty
-        score = 0
+    var onGameOver: ((Double) -> Void)?
+
+    private var eloParams: EloSystem.FlankerParams = EloSystem.flankerParams(1000)
+    private var timerTask: Task<Void, Never>?
+    private var responseTask: Task<Void, Never>?
+
+    // MARK: - Start
+
+    func startGame(eloParams: EloSystem.FlankerParams) {
+        self.eloParams = eloParams
+        totalScore = 0
+        correctCount = 0
         wrongCount = 0
         timeRemaining = 60
         lastCorrect = nil
+        trialCount = 0
+        showHint = true
         gameState = .playing
+        startTimerLoop()
         generateTrial()
-        startTimer()
     }
 
-    func answer(_ direction: Direction) {
-        guard gameState == .playing else { return }
-        flashTask?.cancel()
-        if direction == centerDirection {
-            score += 1
-            lastCorrect = true
-            Haptics.medium()
-        } else {
-            wrongCount += 1
-            lastCorrect = false
-            Haptics.error()
-        }
-        flashTask = Task {
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
-            generateTrial()
-            lastCorrect = nil
-        }
-    }
+    // MARK: - Trial generation
 
     func generateTrial() {
-        // Decide congruency based on difficulty
-        let congruentProbability: Double
-        switch difficulty {
-        case .easy:   congruentProbability = 0.80
-        case .medium: congruentProbability = 0.50
-        case .hard:   congruentProbability = 0.30
-        }
-        let isCongruent = Double.random(in: 0..<1) < congruentProbability
+        let isCongruent = Double.random(in: 0..<1) < eloParams.congruentRatio
+        self.isCongruent = isCongruent
 
         let center: Direction = Bool.random() ? .left : .right
         let flanker: Direction = isCongruent ? center : (center == .left ? .right : .left)
 
         centerDirection = center
-        arrows = [
-            Arrow(direction: flanker, isCenter: false),
-            Arrow(direction: flanker, isCenter: false),
-            Arrow(direction: center,  isCenter: true),
-            Arrow(direction: flanker, isCenter: false),
-            Arrow(direction: flanker, isCenter: false),
-        ]
+        fishDirections = [flanker, flanker, center, flanker, flanker]
+
+        if trialCount > 0 { showHint = false }
+        trialCount += 1
     }
 
-    private func startTimer() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.timeRemaining -= 0.1
-                if self.timeRemaining <= 0 {
-                    self.timeRemaining = 0
-                    self.endGame()
+    // MARK: - Response (called by swipe gesture)
+
+    func respond(direction: Direction, combo: ComboTracker) {
+        guard gameState == .playing else { return }
+        responseTask?.cancel()
+
+        // Bounce center fish regardless of correctness
+        bounceCenter = false
+        Task { @MainActor in
+            bounceCenter = true
+            try? await Task.sleep(for: .milliseconds(50))
+            bounceCenter = false
+        }
+
+        if direction == centerDirection {
+            // Correct
+            correctCount += 1
+            lastCorrect = true
+            Haptics.medium()
+            combo.markCorrect()
+            SoundEngine.shared.playCorrect(streak: combo.streak)
+
+            let baseScore = isCongruent ? 10 : 20
+            let earned = combo.apply(baseScore)
+            totalScore += earned
+        } else {
+            // Wrong
+            wrongCount += 1
+            lastCorrect = false
+            Haptics.error()
+            combo.markWrong()
+            SoundEngine.shared.playWrong()
+            totalScore = max(0, totalScore - 5)
+        }
+
+        responseTask = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            lastCorrect = nil
+            guard gameState == .playing else { return }
+            generateTrial()
+        }
+    }
+
+    // MARK: - Timer loop (async/await, no DispatchQueue)
+
+    private func startTimerLoop() {
+        timerTask?.cancel()
+        timerTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { return }
+                timeRemaining -= 0.1
+                if timeRemaining <= 0 {
+                    timeRemaining = 0
+                    endGame()
+                    return
                 }
             }
         }
     }
 
     private func endGame() {
-        timer?.invalidate()
-        timer = nil
-        flashTask?.cancel()
-        finalScore = score
-        finalBrainScore = PlayerStats.flankerBrainScore(accuracy: accuracy)
-        onGameOver?(accuracy)
+        timerTask?.cancel()
+        responseTask?.cancel()
+        timerTask = nil
+        responseTask = nil
         gameState = .gameOver
+        onGameOver?(accuracy)
     }
 }
 
 // MARK: - View
 
 struct FlankerGameView: View {
-    @StateObject private var vm = FlankerGameViewModel()
+    @StateObject private var vm    = FlankerGameViewModel()
+    @StateObject private var combo = ComboTracker()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
     @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("flankerDifficulty") private var difficulty: Difficulty = .medium
+    @State private var showGameOver = false
+    @State private var gameResult: GameResult? = nil
+
+    // Bioluminescence particles (streak 10+)
+    @State private var bioParticles: [BioParticle] = (0..<5).map { _ in BioParticle() }
+    @State private var bioAnimate: Bool = false
 
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
@@ -142,72 +174,94 @@ struct FlankerGameView: View {
 
     var body: some View {
         ZStack {
-            mainContent
+            // Dynamic ocean background
+            oceanBackground
+                .ignoresSafeArea()
 
-            if vm.showNewBest {
-                NewBestBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(10)
+            // Bioluminescence (streak 10+)
+            if combo.streak >= 10 {
+                bioluminescenceLayer
             }
-            if let level = vm.leveledUpTo {
-                LevelUpBanner(level: level)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(11)
-            }
-            if let achievement = vm.unlockedAchievement {
-                AchievementUnlockedBanner(achievement: achievement)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(12)
+
+            if showGameOver, let result = gameResult {
+                GameOverView(result: result) {
+                    showGameOver = false
+                    gameResult = nil
+                    startGame()
+                }
+                .transition(.opacity)
+                .zIndex(20)
+            } else {
+                mainContent
             }
         }
-        .animation(.spring(response: 0.4), value: vm.showNewBest)
-        .animation(.spring(response: 0.4), value: vm.leveledUpTo)
-        .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Flanker Task")
+        .animation(.easeInOut(duration: 0.25), value: showGameOver)
+        .navigationTitle("Fish School")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            vm.onGameOver = { accuracy in
-                let totalAttempts = vm.finalScore + vm.wrongCount
-                let safeAccuracy = totalAttempts > 0 ? vm.finalScore * 100 / totalAttempts : 100
-                let isNewBest = safeAccuracy > stats.flankerBestAccuracy && totalAttempts > 0
-                let session = GameSession(
-                    gameType: "flanker",
-                    rawScore: vm.finalScore,
-                    brainScore: PlayerStats.flankerBrainScore(accuracy: safeAccuracy),
-                    difficulty: difficulty.rawValue
-                )
-                modelContext.insert(session)
-                let leveledUp = stats.recordFlankerGame(accuracy: safeAccuracy)
-                let newAchievements = checkAndUnlock(stats: stats)
-                if isNewBest {
-                    vm.showNewBest = true
-                    Haptics.success()
-                    Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
-                }
-                if leveledUp {
-                    vm.leveledUpTo = stats.playerLevel
-                    Task { try? await Task.sleep(for: .seconds(2.5)); vm.leveledUpTo = nil }
-                }
-                if let first = newAchievements.first {
-                    let delay = (isNewBest || leveledUp) ? 2.8 : 0.3
-                    Task {
-                        try? await Task.sleep(for: .seconds(delay))
-                        vm.unlockedAchievement = first
-                        Haptics.success()
-                        try? await Task.sleep(for: .seconds(3))
-                        vm.unlockedAchievement = nil
-                    }
-                }
-            }
+            setupGameOverHandler()
+            bioAnimate = true
         }
     }
+
+    // MARK: - Ocean Background
+
+    @ViewBuilder
+    var oceanBackground: some View {
+        let baseColor = Color(red: 0.7, green: 0.88, blue: 0.98)
+
+        ZStack {
+            baseColor
+
+            // Streak 5+: sunset tint overlay
+            if combo.streak >= 5 {
+                Color(red: 0.98, green: 0.75, blue: 0.50)
+                    .opacity(0.3)
+                    .transition(.opacity)
+            }
+
+            // Streak 10+: deeper ocean
+            if combo.streak >= 10 {
+                Color(red: 0.1, green: 0.25, blue: 0.55)
+                    .opacity(0.55)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.8), value: combo.streak >= 5)
+        .animation(.easeInOut(duration: 0.8), value: combo.streak >= 10)
+    }
+
+    // MARK: - Bioluminescence
+
+    var bioluminescenceLayer: some View {
+        GeometryReader { geo in
+            ForEach(bioParticles) { p in
+                Circle()
+                    .fill(Color.white.opacity(0.55))
+                    .frame(width: 3, height: 3)
+                    .offset(
+                        x: p.x * geo.size.width,
+                        y: bioAnimate ? p.yEnd * geo.size.height : p.yStart * geo.size.height
+                    )
+                    .animation(
+                        .easeInOut(duration: p.duration)
+                        .repeatForever(autoreverses: true)
+                        .delay(p.delay),
+                        value: bioAnimate
+                    )
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Main Content
 
     @ViewBuilder
     var mainContent: some View {
         switch vm.gameState {
-        case .idle:     idleView
-        case .playing:  playView
-        case .gameOver: gameOverView
+        case .idle:    idleView
+        case .playing: playView
+        case .gameOver: Color.clear  // handled by GameOverView overlay
         }
     }
 
@@ -217,25 +271,22 @@ struct FlankerGameView: View {
         VStack(spacing: 0) {
             Spacer()
             VStack(spacing: 16) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 72))
-                    .foregroundStyle(.teal)
-
-                Text("Flanker Task")
+                Text("Fish School")
                     .font(.largeTitle.bold())
 
-                Text("Tap the direction of the CENTER arrow\n— ignore the others.")
+                Text("Swipe LEFT or RIGHT based on the\nCENTER fish — ignore the others.")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
 
-                // Example trial preview
-                HStack(spacing: 4) {
+                // Example fish preview
+                HStack(spacing: 6) {
                     ForEach(0..<5, id: \.self) { i in
-                        Text(i == 2 ? "→" : "←")
-                            .font(.system(size: i == 2 ? 36 : 24))
-                            .foregroundStyle(i == 2 ? Color.teal : Color.teal.opacity(0.45))
+                        FishSymbol(
+                            direction: i == 2 ? .right : .left,
+                            isCenter: i == 2
+                        )
                     }
                 }
                 .padding(.vertical, 4)
@@ -245,6 +296,8 @@ struct FlankerGameView: View {
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
                 }
+
+                EloBadge(rating: stats.flankerEloRating, color: .teal)
             }
             Spacer()
 
@@ -252,7 +305,7 @@ struct FlankerGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { startGame() } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -265,83 +318,111 @@ struct FlankerGameView: View {
         }
     }
 
-    // MARK: - Play
+    // MARK: - Play View
 
     var playView: some View {
         VStack(spacing: 20) {
-            // Stat badges
-            HStack {
-                StatBadge(label: "Correct",  value: "\(vm.score)",      color: .teal)
+            // Top bar: score + accuracy + combo badge
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Score").font(.caption.smallCaps()).foregroundStyle(.secondary)
+                    AnimatedScoreText(value: vm.totalScore, font: .title2.bold(), color: .teal)
+                }
                 Spacer()
-                StatBadge(label: "Accuracy", value: "\(vm.accuracy)%",  color: .cyan)
+                VStack(alignment: .center, spacing: 2) {
+                    Text("Accuracy").font(.caption.smallCaps()).foregroundStyle(.secondary)
+                    Text("\(vm.accuracyPercent)%")
+                        .font(.title2.bold())
+                        .foregroundStyle(.cyan)
+                }
                 Spacer()
-                StatBadge(label: "Best",     value: "\(stats.flankerBestAccuracy)%", color: .secondary)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Best").font(.caption.smallCaps()).foregroundStyle(.secondary)
+                    Text("\(stats.flankerBestAccuracy)%")
+                        .font(.title2.bold())
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal)
-            .padding(.top, 8)
+            .overlay(alignment: .topTrailing) {
+                MultiplierBadgeView(combo: combo, color: .teal)
+                    .offset(y: -8)
+            }
 
             // Timer bar
             timerBar
 
             Spacer()
 
-            // Arrow display
-            arrowRow
-                .animation(nil, value: vm.arrows.map { $0.direction == .left })
+            // Fish row — swipe gesture applied here
+            fishRow
+                .gesture(
+                    DragGesture(minimumDistance: 30)
+                        .onEnded { value in
+                            let h = value.translation.width
+                            let v = value.translation.height
+                            if abs(h) > abs(v) {
+                                vm.respond(direction: h > 0 ? .right : .left, combo: combo)
+                            }
+                        }
+                )
 
-            // Feedback flash
-            if let correct = vm.lastCorrect {
-                Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(correct ? .green : .red)
-                    .transition(.scale.combined(with: .opacity))
+            // Feedback
+            feedbackIcon
+
+            // Hint (first trial only)
+            if vm.showHint {
+                Text("← Swipe →")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
             } else {
-                Color.clear.frame(height: 32)
+                Color.clear.frame(height: 20)
             }
 
             Spacer()
-
-            // Left / Right answer buttons
-            HStack(spacing: 12) {
-                answerButton(label: "←", direction: .left)
-                answerButton(label: "→", direction: .right)
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 24)
         }
+        .padding(.top, 8)
         .animation(.easeInOut(duration: 0.15), value: vm.lastCorrect)
+        .animation(.easeInOut(duration: 0.3), value: vm.showHint)
     }
 
-    var arrowRow: some View {
+    // MARK: - Fish Row
+
+    var fishRow: some View {
         HStack(spacing: 6) {
-            ForEach(vm.arrows.indices, id: \.self) { i in
-                let arrow = vm.arrows[i]
-                Text(arrow.direction == .left ? "←" : "→")
-                    .font(.system(size: arrow.isCenter ? 64 : 40))
-                    .foregroundStyle(Color.teal)
+            ForEach(vm.fishDirections.indices, id: \.self) { i in
+                let isCenter = (i == 2)
+                FishSymbol(direction: vm.fishDirections[i], isCenter: isCenter)
+                    .juiceBounce(trigger: isCenter ? vm.bounceCenter : false)
             }
         }
         .frame(maxWidth: .infinity)
+        .animation(nil, value: vm.fishDirections.map { $0 == .left })
     }
 
-    func answerButton(label: String, direction: FlankerGameViewModel.Direction) -> some View {
-        Button { vm.answer(direction) } label: {
-            Text(label)
-                .font(.system(size: 44, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 28)
-                .background(Color.teal, in: RoundedRectangle(cornerRadius: 20))
+    // MARK: - Feedback Icon
+
+    @ViewBuilder
+    var feedbackIcon: some View {
+        if let correct = vm.lastCorrect {
+            Image(systemName: correct ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.title)
+                .foregroundStyle(correct ? .green : .red)
+                .transition(.scale.combined(with: .opacity))
+        } else {
+            Color.clear.frame(height: 32)
         }
-        .buttonStyle(.plain)
     }
+
+    // MARK: - Timer Bar
 
     var timerBar: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color(.systemGray5))
+                Capsule().fill(Color.white.opacity(0.3))
                 Capsule()
-                    .fill(timerColor)
+                    .fill(timerBarColor)
                     .frame(width: geo.size.width * CGFloat(vm.timeRemaining / 60))
                     .animation(.linear(duration: 0.1), value: vm.timeRemaining)
             }
@@ -351,98 +432,93 @@ struct FlankerGameView: View {
         .overlay(alignment: .trailing) {
             Text(String(format: "%.0fs", vm.timeRemaining))
                 .font(.caption.monospacedDigit().bold())
-                .foregroundStyle(timerColor)
+                .foregroundStyle(timerBarColor)
                 .padding(.trailing, 20)
         }
     }
 
-    var timerColor: Color {
+    var timerBarColor: Color {
         if vm.timeRemaining > 20 { return .green }
         if vm.timeRemaining > 10 { return .orange }
         return .red
     }
 
-    // MARK: - Game Over
+    // MARK: - Setup & Game Start
 
-    var gameOverView: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            VStack(spacing: 24) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.teal)
+    private func setupGameOverHandler() {
+        vm.onGameOver = { accuracy in
+            let bonus = vm.accuracyBonus
+            let finalScore = vm.totalScore + bonus
+            let isNewBest = vm.accuracyPercent > stats.flankerBestAccuracy && (vm.correctCount + vm.wrongCount) > 0
+            let brainScore = PlayerStats.flankerBrainScore(accuracy: vm.accuracyPercent)
 
-                Text("Time's Up!")
-                    .font(.largeTitle.bold())
-
-                VStack(spacing: 12) {
-                    resultRow("Correct",      value: "\(vm.finalScore)",          color: .teal)
-                    resultRow("Wrong",        value: "\(vm.wrongCount)",          color: .red)
-                    resultRow("Accuracy",     value: "\(vm.accuracy)%",           color: .cyan)
-                    Divider()
-                    resultRow("Brain Score",  value: "\(vm.finalBrainScore)",     color: .indigo)
-                    resultRow("vs. Average",
-                              value: PlayerStats.percentileLabel(for: vm.finalBrainScore),
-                              color: scoreColor(vm.finalBrainScore))
-                    Divider()
-                    resultRow("All-Time Best",
-                              value: "\(stats.flankerBestAccuracy)% accuracy",   color: .secondary)
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal)
-
-                let totalAttempts = vm.finalScore + vm.wrongCount
-                if totalAttempts > 0 && vm.accuracy == stats.flankerBestAccuracy && vm.accuracy > 0 {
-                    Label("New personal best!", systemImage: "star.fill")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.yellow)
-                }
-            }
-            Spacer()
-
-            DifficultyPicker(difficulty: $difficulty)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-
-            ShareResultButton(
-                gameName: "Flanker",
-                gameIcon: "brain.head.profile",
-                gameColor: .teal,
-                primaryValue: "\(vm.accuracy)",
-                primaryLabel: "% accuracy",
-                secondaryLine: "Brain Score: \(vm.finalBrainScore)"
+            let session = GameSession(
+                gameType: "flanker",
+                rawScore: vm.correctCount,
+                brainScore: brainScore,
+                difficulty: difficulty.rawValue
             )
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+            modelContext.insert(session)
+            stats.recordFlankerGame(accuracy: vm.accuracyPercent)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
-                Text("Play Again")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.teal, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 20)
+            // Update Elo
+            stats.flankerEloRating = EloSystem.updated(stats.flankerEloRating, correct: accuracy > 0.75)
+
+            let result = GameResult(
+                gameTitle: "Fish School",
+                primaryScore: finalScore,
+                primaryLabel: "pts",
+                brainScore: brainScore,
+                previousBrainScore: stats.flankerBrainScore,
+                isNewBest: isNewBest,
+                multiplierBreakdown: nil,
+                percentileText: PlayerStats.percentileLabel(for: brainScore),
+                accentColor: .teal,
+                share: .init(
+                    gameName: "Fish School",
+                    icon: "water.waves",
+                    color: .teal,
+                    primaryValue: "\(finalScore)",
+                    primaryLabel: "pts",
+                    secondaryLine: "Accuracy \(vm.accuracyPercent)%"
+                )
+            )
+            gameResult = result
+            withAnimation { showGameOver = true }
         }
     }
 
-    func resultRow(_ label: String, value: String, color: Color) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).font(.title3.bold()).foregroundStyle(color)
-        }
+    private func startGame() {
+        let params = EloSystem.flankerParams(stats.flankerEloRating)
+        combo.reset()
+        vm.startGame(eloParams: params)
     }
+}
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
+// MARK: - Fish Symbol
+
+private struct FishSymbol: View {
+    let direction: FlankerGameViewModel.Direction
+    let isCenter: Bool
+
+    var body: some View {
+        Image(systemName: "fish.fill")
+            .font(.system(size: isCenter ? 46 : 30))
+            .foregroundStyle(Color.teal.opacity(isCenter ? 1.0 : 0.55))
+            .scaleEffect(x: direction == .right ? 1 : -1, y: 1)
+            .brightness(isCenter ? 0.15 : 0)
     }
+}
+
+// MARK: - Bioluminescence Particle Model
+
+private struct BioParticle: Identifiable {
+    let id = UUID()
+    let x: CGFloat     = CGFloat.random(in: 0.05...0.95)
+    let yStart: CGFloat = CGFloat.random(in: 0.1...0.5)
+    let yEnd: CGFloat   = CGFloat.random(in: 0.5...0.95)
+    let duration: Double = Double.random(in: 3.0...6.0)
+    let delay: Double    = Double.random(in: 0.0...3.0)
 }
 
 // MARK: - Preview
