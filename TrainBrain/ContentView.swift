@@ -48,7 +48,7 @@ struct HomeView: View {
                         streakAndLevelSection
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 52)
+                    .padding(.top, 8)
                     .padding(.bottom, 32)
                 }
 
@@ -63,7 +63,8 @@ struct HomeView: View {
                         .zIndex(19)
                 }
             }
-            .navigationBarHidden(true)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink(destination: SettingsView()) {
