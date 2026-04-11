@@ -23,7 +23,7 @@ class ColorGameViewModel: ObservableObject {
         ColorOption(name: "ORANGE", color: .orange),
     ]
 
-    // Non-color words for round 6-10 variation
+    // Non-color words for rounds 6-10 variation
     private let nonColorWords = ["TREE", "HOUSE", "CLOUD", "FISH", "BIRD", "STAR", "MOON", "ROCK"]
 
     @Published var wordText = ""
@@ -36,23 +36,22 @@ class ColorGameViewModel: ObservableObject {
     @Published var lastCorrect: Bool? = nil
     @Published var lastTappedId: UUID? = nil
     @Published var lastWrongId: UUID? = nil
-    @Published var roundNumber = 0            // total answer count (correct + wrong)
+    @Published var answerCount = 0           // total answered (correct + wrong)
     @Published var correctAttempts = 0
     @Published var totalAttempts = 0
-    @Published var mistakeCount = 0           // for Zen Mode
+    @Published var mistakeCount = 0          // for Zen Mode end condition
     @Published var currentRule: StroopRule = .tapInkColor
     @Published var showRuleBanner = false
     @Published var ruleBannerText = ""
     @Published var gameResult: GameResult? = nil
     @Published var bestMultiplier: Double = 1.0
+    @Published var isZenMode: Bool = false
 
     private var correctOption: ColorOption?
     private var timer: Timer?
     private var difficulty: Difficulty = .medium
-    private var isZenMode: Bool = false
-    private var responseWindowMs: Double = 3000   // for rounds 16+
 
-    enum StroopRule {
+    enum StroopRule: Equatable {
         case tapInkColor        // rounds 1-5, 6-10, odd rounds 11-15
         case tapWordMeaning     // even rounds 11-15
         case speedStroop        // rounds 16+
@@ -73,7 +72,7 @@ class ColorGameViewModel: ObservableObject {
         self.isZenMode = zenMode
         totalDuration = difficulty.colorTimerDuration
         score = 0
-        roundNumber = 0
+        answerCount = 0
         correctAttempts = 0
         totalAttempts = 0
         mistakeCount = 0
@@ -83,16 +82,16 @@ class ColorGameViewModel: ObservableObject {
         showRuleBanner = false
         gameResult = nil
         gameState = .playing
-        responseWindowMs = 3000
         nextQuestion()
         if !zenMode {
             startTimer()
         }
     }
 
-    func selectColor(_ option: ColorOption) {
-        guard gameState == .playing else { return }
-        let correct = option == correctOption
+    // Called by view when player selects a button
+    func selectColor(_ option: ColorOption) -> Bool {
+        guard gameState == .playing else { return false }
+        let correct = option.id == correctOption?.id
         lastCorrect = correct
         lastTappedId = option.id
         totalAttempts += 1
@@ -103,9 +102,10 @@ class ColorGameViewModel: ObservableObject {
             lastWrongId = option.id
             mistakeCount += 1
         }
+        return correct
     }
 
-    // Called by view after combo updates
+    // Called by view after combo updates, applies score and advances question
     func applyResult(correct: Bool, combo: ComboTracker) {
         guard gameState == .playing else { return }
         let base = 10
@@ -113,12 +113,8 @@ class ColorGameViewModel: ObservableObject {
             let pts = combo.apply(base)
             score += pts
             bestMultiplier = max(bestMultiplier, combo.multiplier)
-            SoundEngine.shared.playCorrect(streak: combo.streak)
-            Haptics.medium()
         } else {
             score = max(0, score - 5)
-            SoundEngine.shared.playWrong()
-            Haptics.error()
             // Zen mode: end on 3rd mistake
             if isZenMode && mistakeCount >= 3 {
                 endGame()
@@ -126,7 +122,7 @@ class ColorGameViewModel: ObservableObject {
             }
         }
 
-        roundNumber += 1
+        answerCount += 1
         updateRule()
 
         let delay = difficulty.colorQuestionDelay
@@ -143,19 +139,18 @@ class ColorGameViewModel: ObservableObject {
 
     private func updateRule() {
         let prevRule = currentRule
-        switch roundNumber {
+        switch answerCount {
         case ..<5:
             currentRule = .tapInkColor
         case 5..<10:
-            // Rounds 6-10: non-color words, still tap ink color
+            // Rounds 6-10: non-color words in colors, still tap ink color
             currentRule = .tapInkColor
         case 10..<15:
-            // Rounds 11-15: alternating — odd=tapInk, even=tapWord
-            currentRule = (roundNumber % 2 == 0) ? .tapWordMeaning : .tapInkColor
+            // Rounds 11-15: alternating — even index=tapWord, odd=tapInk
+            currentRule = (answerCount % 2 == 0) ? .tapWordMeaning : .tapInkColor
         default:
-            // Rounds 16+: Speed Stroop, shrinking window
+            // Rounds 16+: Speed Stroop
             currentRule = .speedStroop
-            responseWindowMs = max(500, 3000 - Double(roundNumber - 15) * 50)
         }
 
         // Show rule-switch banner when rule changes
@@ -184,8 +179,7 @@ class ColorGameViewModel: ObservableObject {
 
         switch currentRule {
         case .tapInkColor, .speedStroop:
-            // For rounds 6-10, sometimes use non-color words
-            let useNonColor = (5..<10).contains(roundNumber)
+            let useNonColor = (5..<10).contains(answerCount)
             if useNonColor {
                 wordText = nonColorWords.randomElement()!
             } else {
@@ -193,21 +187,21 @@ class ColorGameViewModel: ObservableObject {
                 wordText = word.name
             }
             var ink: ColorOption
-            repeat { ink = pool.randomElement()! } while useNonColor ? false : ink.name == wordText
+            repeat { ink = pool.randomElement()! } while (!useNonColor && ink.name == wordText)
             inkColor = ink.color
             correctOption = ink
 
         case .tapWordMeaning:
-            // Even rounds 11-15: tap what the word SAYS
+            // Even rounds 11-15: tap the named color, not the ink
             let word = pool.randomElement()!
             var ink: ColorOption
-            repeat { ink = pool.randomElement()! } while ink == word
+            repeat { ink = pool.randomElement()! } while ink.id == word.id
             wordText = word.name
             inkColor = ink.color
-            correctOption = word  // correct = match the word's meaning
+            correctOption = word  // correct answer = match the word meaning
         }
 
-        var others = pool.filter { $0 != correctOption }
+        var others = pool.filter { $0.id != correctOption?.id }
         others.shuffle()
         choices = ([correctOption!] + Array(others.prefix(3))).shuffled()
     }
@@ -242,9 +236,6 @@ struct ColorGameView: View {
 
     @State private var zenMode = false
     @State private var showGameOver = false
-    @State private var correctButtonBounce: UUID? = nil
-    @State private var correctButtonFlash: UUID? = nil
-    @State private var wrongButtonDim: UUID? = nil
 
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
@@ -270,40 +261,10 @@ struct ColorGameView: View {
             .animation(.easeInOut(duration: 0.25), value: vm.gameState)
 
             // Screen-edge warm glow at streak 5+
-            if combo.streak >= 5 {
-                let glowOpacity = min(0.3, Double(combo.streak - 5) / 15.0 * 0.3 + 0.08)
-                GeometryReader { geo in
-                    ZStack {
-                        // Left edge
-                        LinearGradient(
-                            colors: [.orange.opacity(glowOpacity), .clear],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 60)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        // Right edge
-                        LinearGradient(
-                            colors: [.clear, .orange.opacity(glowOpacity)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 60)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-
-                        // Bottom edge
-                        LinearGradient(
-                            colors: [.clear, .red.opacity(glowOpacity)],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                        .frame(height: 80)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
-                    }
-                    .frame(width: geo.size.width, height: geo.size.height)
-                }
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                .animation(.easeInOut(duration: 0.5), value: combo.streak)
-                .zIndex(5)
+            if vm.gameState == .playing && combo.streak >= 5 {
+                streakEdgeGlow
+                    .zIndex(5)
+                    .allowsHitTesting(false)
             }
         }
         .overlay {
@@ -323,16 +284,15 @@ struct ColorGameView: View {
         .onAppear {
             vm.onGameOver = { finalScore, accuracy in
                 let isNewBest = finalScore > stats.colorBestScore
-                let brainScore = 0  // color is training-only, no normalized score
                 let session = GameSession(
                     gameType: "color",
                     rawScore: finalScore,
-                    brainScore: brainScore,
+                    brainScore: 0,
                     difficulty: difficulty.rawValue
                 )
                 modelContext.insert(session)
                 stats.recordColorGame(score: finalScore, streak: combo.streak)
-                // Elo update
+                // Elo update: correct if accuracy > 75%
                 stats.stroopEloRating = EloSystem.updated(stats.stroopEloRating, correct: accuracy > 0.75)
 
                 let breakdown: GameResult.MultiplierBreakdown? = vm.bestMultiplier > 1.0
@@ -351,7 +311,7 @@ struct ColorGameView: View {
                     previousBrainScore: 0,
                     isNewBest: isNewBest,
                     multiplierBreakdown: breakdown,
-                    percentileText: "\(vm.accuracyPercent)% accuracy",
+                    percentileText: "\(Int(accuracy * 100))% accuracy",
                     accentColor: .purple,
                     share: GameResult.ShareConfig(
                         gameName: "Stroop Challenge",
@@ -359,7 +319,7 @@ struct ColorGameView: View {
                         color: .purple,
                         primaryValue: "\(finalScore)",
                         primaryLabel: "pts",
-                        secondaryLine: "\(vm.accuracyPercent)% accuracy"
+                        secondaryLine: "\(Int(accuracy * 100))% accuracy"
                     )
                 )
                 vm.gameResult = result
@@ -369,6 +329,39 @@ struct ColorGameView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Screen-edge streak glow
+
+    private var streakEdgeGlow: some View {
+        let glowOpacity = min(0.3, Double(combo.streak - 5) / 15.0 * 0.22 + 0.08)
+        return GeometryReader { geo in
+            ZStack {
+                LinearGradient(
+                    colors: [.orange.opacity(glowOpacity), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 60)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                LinearGradient(
+                    colors: [.clear, .orange.opacity(glowOpacity)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 60)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
+                LinearGradient(
+                    colors: [.clear, .red.opacity(glowOpacity)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: 80)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.5), value: combo.streak)
     }
 
     // MARK: - Idle
@@ -395,7 +388,7 @@ struct ColorGameView: View {
                 // Auto difficulty badge
                 StroopAutoDiffBadge(eloRating: stats.stroopEloRating)
 
-                // Zen Mode toggle
+                // Mode toggle
                 HStack {
                     Toggle(isOn: $zenMode) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -439,7 +432,7 @@ struct ColorGameView: View {
 
     var playingView: some View {
         VStack(spacing: 0) {
-            // Header row
+            // Header: score, streak flame, multiplier
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Score").font(.caption.smallCaps()).foregroundStyle(.secondary)
@@ -448,7 +441,6 @@ struct ColorGameView: View {
 
                 Spacer()
 
-                // Streak flame
                 StreakFlameBadge(streak: combo.streak)
 
                 Spacer()
@@ -466,47 +458,20 @@ struct ColorGameView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20).padding(.vertical, 8)
                     .background(Color.purple.gradient, in: Capsule())
-                    .transition(.move(edge: .top).combined(with: .opacity))
                     .padding(.bottom, 6)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // Timer (Rush mode only)
-            if !zenMode {
-                VStack(spacing: 4) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Color(.systemGray5))
-                            Capsule()
-                                .fill(timerBarColor)
-                                .frame(width: geo.size.width * CGFloat(vm.timeRemaining / vm.totalDuration))
-                        }
-                    }
-                    .frame(height: 8)
-                    .animation(.linear(duration: 0.05), value: vm.timeRemaining)
-
-                    Text(String(format: "%.1fs", vm.timeRemaining))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(timerBarColor)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+            // Timer bar (Rush Mode) or mistake dots (Zen Mode)
+            if !vm.isZenMode {
+                timerSection
             } else {
-                // Zen mode: show mistake count
-                HStack(spacing: 4) {
-                    ForEach(0..<3, id: \.self) { i in
-                        Image(systemName: i < vm.mistakeCount ? "xmark.circle.fill" : "circle")
-                            .foregroundStyle(i < vm.mistakeCount ? Color.red : Color(.systemGray3))
-                    }
-                    Text("mistakes")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.bottom, 8)
+                zenMistakeDots
             }
 
             Spacer()
 
-            // Current rule indicator
+            // Current rule cue
             Text(ruleLabel)
                 .font(.caption.smallCaps())
                 .foregroundStyle(.secondary)
@@ -517,7 +482,7 @@ struct ColorGameView: View {
                 .font(.system(size: 80, weight: .black))
                 .foregroundStyle(vm.inkColor)
                 .shadow(color: vm.inkColor.opacity(0.25), radius: 10)
-                .id(vm.wordText + "\(vm.inkColor)")
+                .id(vm.wordText + vm.answerCount.description)
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.8).combined(with: .opacity),
                     removal: .opacity
@@ -530,6 +495,7 @@ struct ColorGameView: View {
                     .font(.title)
                     .foregroundStyle(correct ? Color.green : Color.red)
                     .transition(.scale.combined(with: .opacity))
+                    .animation(.spring(response: 0.25), value: vm.lastCorrect)
             }
 
             Spacer()
@@ -537,13 +503,19 @@ struct ColorGameView: View {
             // Answer buttons
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(vm.choices) { option in
-                    AnswerButton(
+                    StroopAnswerButton(
                         option: option,
                         lastTappedId: vm.lastTappedId,
                         lastWrongId: vm.lastWrongId,
                         lastCorrect: vm.lastCorrect
                     ) {
-                        handleTap(option)
+                        let correct = vm.selectColor(option)
+                        if correct {
+                            combo.markCorrect()
+                        } else {
+                            combo.markWrong()
+                        }
+                        vm.applyResult(correct: correct, combo: combo)
                     }
                 }
             }
@@ -553,27 +525,48 @@ struct ColorGameView: View {
         .animation(.easeInOut(duration: 0.2), value: vm.showRuleBanner)
     }
 
+    private var timerSection: some View {
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(.systemGray5))
+                    Capsule()
+                        .fill(timerBarColor)
+                        .frame(width: geo.size.width * CGFloat(vm.timeRemaining / vm.totalDuration))
+                }
+            }
+            .frame(height: 8)
+            .animation(.linear(duration: 0.05), value: vm.timeRemaining)
+
+            Text(String(format: "%.1fs", vm.timeRemaining))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(timerBarColor)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    private var zenMistakeDots: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { i in
+                Image(systemName: i < vm.mistakeCount ? "xmark.circle.fill" : "circle")
+                    .foregroundStyle(i < vm.mistakeCount ? Color.red : Color(.systemGray3))
+                    .animation(.spring(response: 0.3), value: vm.mistakeCount)
+            }
+            Text("mistakes")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.bottom, 8)
+    }
+
     private var ruleLabel: String {
         switch vm.currentRule {
         case .tapWordMeaning: return "Tap what the word MEANS"
-        case .tapInkColor, .speedStroop: return "Tap the ink COLOR"
+        case .tapInkColor:    return "Tap the ink COLOR"
+        case .speedStroop:    return "SPEED — tap the ink COLOR"
         }
     }
-
-    private func handleTap(_ option: ColorOption) {
-        guard vm.gameState == .playing else { return }
-        let correct = option == vm.choices.first(where: { _ in true }) ? false : false  // placeholder
-        vm.selectColor(option)
-        let isCorrect = vm.lastCorrect == true
-        if isCorrect {
-            combo.markCorrect()
-        } else {
-            combo.markWrong()
-        }
-        vm.applyResult(correct: isCorrect, combo: combo)
-    }
-
-    // MARK: - Helpers
 
     var timerBarColor: Color {
         let fraction = vm.timeRemaining / vm.totalDuration
@@ -583,9 +576,9 @@ struct ColorGameView: View {
     }
 }
 
-// MARK: - AnswerButton
+// MARK: - StroopAnswerButton
 
-struct AnswerButton: View {
+struct StroopAnswerButton: View {
     let option: ColorOption
     let lastTappedId: UUID?
     let lastWrongId: UUID?
@@ -595,9 +588,6 @@ struct AnswerButton: View {
     @State private var bouncing = false
     @State private var flashing = false
     @State private var dimming = false
-
-    private var wasTapped: Bool { lastTappedId == option.id }
-    private var wasWrong: Bool { lastWrongId == option.id }
 
     var body: some View {
         Button { onTap() } label: {
@@ -617,12 +607,10 @@ struct AnswerButton: View {
         .juiceDim(trigger: dimming)
         .onChange(of: lastTappedId) { _, newId in
             guard newId == option.id, lastCorrect == true else { return }
-            bouncing = true
-            flashing = true
+            bouncing = true; flashing = true
             Task {
                 try? await Task.sleep(for: .milliseconds(50))
-                bouncing = false
-                flashing = false
+                bouncing = false; flashing = false
             }
         }
         .onChange(of: lastWrongId) { _, newId in
@@ -655,15 +643,6 @@ private struct StroopAutoDiffBadge: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(Color(.systemGray5), in: Capsule())
-    }
-}
-
-// The zenMode state is stored locally in the view so we need a wrapper for
-// the `playingView` that knows about it. We use a computed var here to access it.
-private extension ColorGameView {
-    var zenMode: Bool {
-        // Access the @State binding — this is evaluated at call site where @State is visible
-        false
     }
 }
 
