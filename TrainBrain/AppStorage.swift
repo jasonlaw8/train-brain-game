@@ -180,7 +180,12 @@ final class PlayerStats {
     var playedMemoryToday: Bool { isToday(memoryLastPlayedDate) }
     var playedColorToday:  Bool { isToday(colorLastPlayedDate) }
     var playedReflexToday: Bool { isToday(reflexLastPlayedDate) }
-    var dailyGamesCompleted: Int { [playedMemoryToday, playedColorToday, playedReflexToday].filter { $0 }.count }
+    var dailyGamesCompleted: Int {
+        [playedMemoryToday, playedColorToday, playedReflexToday,
+         dailyChallengeDigitSpanDone, dailyChallengeStopSignalDone,
+         dailyChallengeMentalRotationDone, dailyChallengeWordScrambleDone,
+         dailyChallengeNumberTrailDone].filter { $0 }.count
+    }
 
     // MARK: - Brain Snapshot cooldown
     var canTakeSnapshot: Bool {
@@ -200,15 +205,23 @@ final class PlayerStats {
         return Calendar.current.isDateInToday(date)
     }
 
-    /// Overall Brain Score: average of all three metrics. 0 if any are unscored yet.
+    /// Overall Brain Score: average of all games played (score > 0).
     var overallBrainScore: Int {
-        guard memoryBrainScore > 0, reflexBrainScore > 0, speedBrainScore > 0 else { return 0 }
-        return (memoryBrainScore + reflexBrainScore + speedBrainScore) / 3
+        let scores = [memoryBrainScore, reflexBrainScore, speedBrainScore,
+                      flankerBrainScore, spatialBrainScore, visualBrainScore,
+                      patternBrainScore, digitSpanBrainScore, stopSignalBrainScore,
+                      mentalRotationBrainScore, wordScrambleBrainScore, numberTrailBrainScore
+                     ].filter { $0 > 0 }
+        guard !scores.isEmpty else { return 0 }
+        return scores.reduce(0, +) / scores.count
     }
 
     /// Whether today's full set of daily challenges is complete.
     var allDailyChallengesDone: Bool {
-        dailyChallengeMemoryDone && dailyChallengeReflexDone && dailyChallengeSpeedDone
+        dailyChallengeMemoryDone && dailyChallengeReflexDone && dailyChallengeSpeedDone &&
+        dailyChallengeDigitSpanDone && dailyChallengeStopSignalDone &&
+        dailyChallengeMentalRotationDone && dailyChallengeWordScrambleDone &&
+        dailyChallengeNumberTrailDone
     }
 
     // MARK: - Achievement helpers
@@ -564,5 +577,7 @@ final class PlayerStats {
             dailyStreakCount = 1
             lastStreakDate = Date()
         }
+        // Cache streak in UserDefaults so TrainBrainApp can read it without SwiftData
+        UserDefaults.standard.set(dailyStreakCount, forKey: "cachedStreakCount")
     }
 }

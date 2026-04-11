@@ -57,6 +57,7 @@ struct SnapshotTransitionView: View {
     @State private var countdown: Int = 3
     @State private var showCountdown: Bool = false
     @State private var demoAnimating: Bool = false
+    @State private var countdownTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 28) {
@@ -105,20 +106,22 @@ struct SnapshotTransitionView: View {
         }
         .onAppear {
             demoAnimating = true
-            // Show demo for 5 seconds, then start countdown
-            Task {
+            countdownTask = Task { @MainActor in
                 try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { return }
                 showCountdown = true
                 Haptics.medium()
                 for tick in stride(from: 3, through: 1, by: -1) {
                     countdown = tick
-                    if tick < 3 {
-                        Haptics.medium()
-                    }
+                    if tick < 3 { Haptics.medium() }
                     try? await Task.sleep(for: .seconds(1))
+                    guard !Task.isCancelled else { return }
                 }
                 onReady()
             }
+        }
+        .onDisappear {
+            countdownTask?.cancel()
         }
     }
 
@@ -142,6 +145,7 @@ private struct LightningTapDemoView: View {
     @State private var visible = false
     @State private var x: CGFloat = 0.5
     @State private var y: CGFloat = 0.5
+    @State private var animTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -158,18 +162,23 @@ private struct LightningTapDemoView: View {
         }
         .frame(height: 120)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .onAppear { animate() }
+        .onAppear { startAnimating() }
+        .onDisappear { animTask?.cancel() }
     }
 
-    private func animate() {
-        withAnimation(.spring(response: 0.3)) {
-            visible = true
-            x = CGFloat.random(in: 0.2...0.8)
-            y = CGFloat.random(in: 0.2...0.8)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeOut(duration: 0.2)) { visible = false }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { animate() }
+    private func startAnimating() {
+        animTask = Task { @MainActor in
+            while !Task.isCancelled {
+                withAnimation(.spring(response: 0.3)) {
+                    visible = true
+                    x = CGFloat.random(in: 0.2...0.8)
+                    y = CGFloat.random(in: 0.2...0.8)
+                }
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled else { break }
+                withAnimation(.easeOut(duration: 0.2)) { visible = false }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
         }
     }
 }
@@ -179,7 +188,14 @@ private struct LightningTapDemoView: View {
 private struct ArrowStormDemoView: View {
     let color: Color
     @State private var arrows: [String] = ["←","←","←","←","←"]
-    @State private var highlight = false
+    @State private var animTask: Task<Void, Never>?
+
+    private let examples: [[String]] = [
+        ["←","←","←","←","←"],
+        ["→","→","←","→","→"],
+        ["←","←","→","←","←"],
+        ["→","→","→","→","→"]
+    ]
 
     var body: some View {
         VStack(spacing: 12) {
@@ -197,25 +213,21 @@ private struct ArrowStormDemoView: View {
             Text("Swipe in the center arrow's direction")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .onAppear { cycleDemos() }
+        .onAppear { startCycling() }
+        .onDisappear { animTask?.cancel() }
     }
 
-    private func cycleDemos() {
-        let examples: [[String]] = [
-            ["←","←","←","←","←"],
-            ["→","→","←","→","→"],
-            ["←","←","→","←","←"],
-            ["→","→","→","→","→"]
-        ]
-        var idx = 0
-        func next() {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                arrows = examples[idx % examples.count]
-                idx += 1
+    private func startCycling() {
+        animTask = Task { @MainActor in
+            var idx = 0
+            while !Task.isCancelled {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    arrows = examples[idx % examples.count]
+                    idx += 1
+                }
+                try? await Task.sleep(for: .milliseconds(1200))
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { next() }
         }
-        next()
     }
 }
 
@@ -225,6 +237,7 @@ private struct CardMatchDemoView: View {
     let color: Color
     @State private var cardIndex = 0
     @State private var showCard = true
+    @State private var animTask: Task<Void, Never>?
 
     private let demoCards = [("7","♥","red"), ("7","♥","red"), ("Q","♠","primary"), ("Q","♠","primary")]
     private let labels = ["", "Match!", "New", "Match!"]
@@ -269,16 +282,20 @@ private struct CardMatchDemoView: View {
                     .background(Color.blue, in: RoundedRectangle(cornerRadius: 10))
             }
         }
-        .onAppear { cycleCards() }
+        .onAppear { startCycling() }
+        .onDisappear { animTask?.cancel() }
     }
 
-    private func cycleCards() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            showCard = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+    private func startCycling() {
+        animTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(1200))
+                guard !Task.isCancelled else { break }
+                showCard = false
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { break }
                 cardIndex += 1
                 showCard = true
-                cycleCards()
             }
         }
     }
@@ -290,6 +307,7 @@ private struct ShapeShiftDemoView: View {
     let color: Color
     @State private var ruleIdx = 0
     @State private var shapeIdx = 0
+    @State private var animTask: Task<Void, Never>?
 
     private let rules   = ["SORT BY COLOR", "SORT BY SHAPE", "SORT BY COLOR"]
     private let icons   = ["paintpalette.fill", "square.on.circle.fill", "paintpalette.fill"]
@@ -313,14 +331,18 @@ private struct ShapeShiftDemoView: View {
                 .foregroundStyle(colors[shapeIdx % colors.count])
                 .animation(.spring(response: 0.3), value: shapeIdx)
         }
-        .onAppear { cycleDemos() }
+        .onAppear { startCycling() }
+        .onDisappear { animTask?.cancel() }
     }
 
-    private func cycleDemos() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            shapeIdx += 1
-            if shapeIdx % 2 == 0 { ruleIdx += 1 }
-            cycleDemos()
+    private func startCycling() {
+        animTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(1400))
+                guard !Task.isCancelled else { break }
+                shapeIdx += 1
+                if shapeIdx % 2 == 0 { ruleIdx += 1 }
+            }
         }
     }
 }

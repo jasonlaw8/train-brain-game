@@ -7,6 +7,7 @@ struct TrainBrainApp: App {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     @AppStorage("notificationHour") private var notificationHour = 9
     @AppStorage("notificationMinute") private var notificationMinute = 0
+    @AppStorage("cachedStreakCount") private var cachedStreakCount = 0
 
     @State private var showSplash = true
 
@@ -47,7 +48,7 @@ struct TrainBrainApp: App {
                     NotificationManager.shared.scheduleDailyReminder(
                         hour: notificationHour,
                         minute: notificationMinute,
-                        streakCount: 0
+                        streakCount: cachedStreakCount
                     )
                 }
             }

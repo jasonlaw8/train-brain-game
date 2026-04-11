@@ -437,31 +437,58 @@ struct ProgressView: View {
 
     func gameIcon(_ type: String) -> String {
         switch type {
-        case "memory": return "square.grid.3x3.fill"
-        case "reflex": return "bolt.fill"
-        case "speed":  return "function"
-        case "color":  return "paintpalette.fill"
-        default:       return "gamecontroller.fill"
+        case "memory":         return "square.grid.3x3.fill"
+        case "reflex":         return "bolt.fill"
+        case "speed":          return "function"
+        case "color":          return "paintpalette.fill"
+        case "flanker":        return "arrow.left.arrow.right"
+        case "spatial":        return "square.grid.3x3.fill.square"
+        case "visual":         return "eye.fill"
+        case "pattern":        return "square.grid.2x2.fill"
+        case "digitspan":      return "textformat.123"
+        case "stopsignal":     return "hand.raised.fill"
+        case "mentalrotation": return "rotate.3d"
+        case "wordscramble":   return "text.word.spacing"
+        case "numbertrail":    return "arrow.triangle.turn.up.right.circle.fill"
+        default:               return "gamecontroller.fill"
         }
     }
 
     func gameColor(_ type: String) -> Color {
         switch type {
-        case "memory": return .blue
-        case "reflex": return .orange
-        case "speed":  return .green
-        case "color":  return .purple
-        default:       return .secondary
+        case "memory":         return .blue
+        case "reflex":         return .orange
+        case "speed":          return .green
+        case "color":          return .purple
+        case "flanker":        return .yellow
+        case "spatial":        return .cyan
+        case "visual":         return .pink
+        case "pattern":        return .indigo
+        case "digitspan":      return .teal
+        case "stopsignal":     return .red
+        case "mentalrotation": return .indigo
+        case "wordscramble":   return .mint
+        case "numbertrail":    return .cyan
+        default:               return .secondary
         }
     }
 
     func gameName(_ type: String) -> String {
         switch type {
-        case "memory": return "Simon Says"
-        case "reflex": return "Reaction Time"
-        case "speed":  return "Math Blitz"
-        case "color":  return "Stroop Challenge"
-        default:       return type.capitalized
+        case "memory":         return "Simon Says"
+        case "reflex":         return "Reaction Time"
+        case "speed":          return "Math Blitz"
+        case "color":          return "Stroop Challenge"
+        case "flanker":        return "Arrow Flanker"
+        case "spatial":        return "Spatial Memory"
+        case "visual":         return "Visual Search"
+        case "pattern":        return "Pattern Match"
+        case "digitspan":      return "Digit Span"
+        case "stopsignal":     return "Stop Signal"
+        case "mentalrotation": return "Mental Rotation"
+        case "wordscramble":   return "Word Scramble"
+        case "numbertrail":    return "Number Trail"
+        default:               return type.capitalized
         }
     }
 

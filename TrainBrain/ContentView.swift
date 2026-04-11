@@ -246,12 +246,7 @@ struct HomeView: View {
             Image(systemName: "calendar").foregroundStyle(.secondary).font(.subheadline)
             Text("Today").font(.subheadline.bold())
             Spacer()
-            HStack(spacing: 8) {
-                DailyDot(icon: "square.grid.3x3.fill", color: .blue,   done: stats.playedMemoryToday)
-                DailyDot(icon: "paintpalette.fill",    color: .purple, done: stats.playedColorToday)
-                DailyDot(icon: "bolt.fill",            color: .orange, done: stats.playedReflexToday)
-            }
-            Text("\(stats.dailyGamesCompleted)/3")
+            Text("\(stats.dailyGamesCompleted)/8 done")
                 .font(.caption.bold()).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
@@ -277,6 +272,16 @@ struct HomeView: View {
                              done: stats.dailyChallengeReflexDone, destination: AnyView(ReflexGameView()))
                 challengeRow("Speed Sprint",     icon: "function",             color: .green,
                              done: stats.dailyChallengeSpeedDone,  destination: AnyView(MathBlitzGameView()))
+                challengeRow("Digit Span",       icon: "textformat.123",       color: .teal,
+                             done: stats.dailyChallengeDigitSpanDone,     destination: AnyView(DigitSpanGameView()))
+                challengeRow("Stop Signal",      icon: "hand.raised.fill",     color: .red,
+                             done: stats.dailyChallengeStopSignalDone,    destination: AnyView(StopSignalGameView()))
+                challengeRow("Mental Rotation",  icon: "rotate.3d",            color: .indigo,
+                             done: stats.dailyChallengeMentalRotationDone, destination: AnyView(MentalRotationGameView()))
+                challengeRow("Word Scramble",    icon: "text.word.spacing",    color: .mint,
+                             done: stats.dailyChallengeWordScrambleDone,  destination: AnyView(WordScrambleGameView()))
+                challengeRow("Number Trail",     icon: "arrow.triangle.turn.up.right.circle.fill", color: .cyan,
+                             done: stats.dailyChallengeNumberTrailDone,   destination: AnyView(NumberTrailGameView()))
                 snapshotChallengeRow
             }
         }

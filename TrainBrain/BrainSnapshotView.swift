@@ -45,6 +45,7 @@ struct BrainSnapshotView: View {
 
     @State private var phase: Phase = .intro
     @State private var unlockedAchievement: Achievement? = nil
+    @State private var showCancelAlert = false
 
     // Trial data accumulated across tasks
     @State private var task1Trials: [TrialRecord] = []
@@ -68,8 +69,39 @@ struct BrainSnapshotView: View {
                     .animation(.spring(response: 0.4), value: unlockedAchievement?.id)
                     .zIndex(20)
             }
+
+            // Cancel button during active task phases
+            if showCancelButton {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button { showCancelAlert = true } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 26))
+                                .foregroundStyle(.secondary)
+                                .padding(.trailing, 16)
+                                .padding(.top, 16)
+                        }
+                    }
+                    Spacer()
+                }
+                .zIndex(10)
+            }
         }
         .navigationBarHidden(true)
+        .alert("End Assessment?", isPresented: $showCancelAlert) {
+            Button("End Assessment", role: .destructive) { dismiss() }
+            Button("Continue", role: .cancel) {}
+        } message: {
+            Text("Progress will not be saved.")
+        }
+    }
+
+    private var showCancelButton: Bool {
+        switch phase {
+        case .task1, .task2, .task3, .task4, .transition: return true
+        default: return false
+        }
     }
 
     // MARK: - Phase content

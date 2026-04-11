@@ -30,6 +30,8 @@ class WordScrambleViewModel: ObservableObject {
     var onGameOver: ((Int) -> Void)?
 
     private var difficulty: Difficulty = .medium
+
+    deinit { timer?.invalidate() }
     private var currentWord: String = ""
     private var wordQueue: [String] = []
     private var timer: Timer?

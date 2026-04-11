@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SplashView: View {
     @Binding var isShowing: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var iconScale: CGFloat = 0.6
     @State private var iconOpacity: Double = 0
@@ -10,12 +11,13 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            // Match the app's animated background feel but static (no model context yet)
+            // Adaptive gradient: deep navy in Dark Mode, soft lavender in Light Mode
             LinearGradient(
-                colors: [
-                    Color(red: 0.07, green: 0.07, blue: 0.14),
-                    Color(red: 0.10, green: 0.08, blue: 0.20)
-                ],
+                colors: colorScheme == .dark
+                    ? [Color(red: 0.07, green: 0.07, blue: 0.14),
+                       Color(red: 0.10, green: 0.08, blue: 0.20)]
+                    : [Color(red: 0.93, green: 0.92, blue: 0.98),
+                       Color(red: 0.88, green: 0.86, blue: 0.96)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -37,10 +39,10 @@ struct SplashView: View {
                 VStack(spacing: 6) {
                     Text("Train Brain")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                     Text("Challenge your mind daily")
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(.secondary)
                 }
                 .opacity(titleOpacity)
                 .offset(y: titleOffset)
