@@ -46,6 +46,11 @@
 		AABB0000000000000002B2 /* MentalRotationGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000002B1 /* MentalRotationGameView.swift */; };
 		AABB0000000000000002C2 /* WordScrambleGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000002C1 /* WordScrambleGameView.swift */; };
 		AABB0000000000000002D2 /* NumberTrailGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000002D1 /* NumberTrailGameView.swift */; };
+		AABB000000000000000302 /* SoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000301 /* SoundEngine.swift */; };
+		AABB000000000000000312 /* EloSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000311 /* EloSystem.swift */; };
+		AABB000000000000000322 /* ComboTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000321 /* ComboTracker.swift */; };
+		AABB000000000000000332 /* JuiceEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000331 /* JuiceEffects.swift */; };
+		AABB000000000000000342 /* GameOverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000341 /* GameOverView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -89,6 +94,11 @@
 		AABB0000000000000002B1 /* MentalRotationGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentalRotationGameView.swift; sourceTree = "<group>"; };
 		AABB0000000000000002C1 /* WordScrambleGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordScrambleGameView.swift; sourceTree = "<group>"; };
 		AABB0000000000000002D1 /* NumberTrailGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberTrailGameView.swift; sourceTree = "<group>"; };
+		AABB000000000000000301 /* SoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundEngine.swift; sourceTree = "<group>"; };
+		AABB000000000000000311 /* EloSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EloSystem.swift; sourceTree = "<group>"; };
+		AABB000000000000000321 /* ComboTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComboTracker.swift; sourceTree = "<group>"; };
+		AABB000000000000000331 /* JuiceEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JuiceEffects.swift; sourceTree = "<group>"; };
+		AABB000000000000000341 /* GameOverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameOverView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,6 +162,11 @@
 				AABB0000000000000002B1 /* MentalRotationGameView.swift */,
 				AABB0000000000000002C1 /* WordScrambleGameView.swift */,
 				AABB0000000000000002D1 /* NumberTrailGameView.swift */,
+				AABB000000000000000301 /* SoundEngine.swift */,
+				AABB000000000000000311 /* EloSystem.swift */,
+				AABB000000000000000321 /* ComboTracker.swift */,
+				AABB000000000000000331 /* JuiceEffects.swift */,
+				AABB000000000000000341 /* GameOverView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -270,6 +285,11 @@
 				AABB0000000000000002B2 /* MentalRotationGameView.swift in Sources */,
 				AABB0000000000000002C2 /* WordScrambleGameView.swift in Sources */,
 				AABB0000000000000002D2 /* NumberTrailGameView.swift in Sources */,
+				AABB000000000000000302 /* SoundEngine.swift in Sources */,
+				AABB000000000000000312 /* EloSystem.swift in Sources */,
+				AABB000000000000000322 /* ComboTracker.swift in Sources */,
+				AABB000000000000000332 /* JuiceEffects.swift in Sources */,
+				AABB000000000000000342 /* GameOverView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

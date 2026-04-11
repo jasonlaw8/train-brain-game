@@ -112,6 +112,21 @@ final class PlayerStats {
     var dailyChallengeWordScrambleDone: Bool = false
     var dailyChallengeNumberTrailDone: Bool = false
 
+    // MARK: - Adaptive Elo Ratings (one per game, starts at 1000)
+    var memoryEloRating:       Double = EloSystem.defaultRating
+    var reflexEloRating:       Double = EloSystem.defaultRating
+    var mathEloRating:         Double = EloSystem.defaultRating
+    var stroopEloRating:       Double = EloSystem.defaultRating
+    var flankerEloRating:      Double = EloSystem.defaultRating
+    var spatialEloRating:      Double = EloSystem.defaultRating
+    var visualSearchEloRating: Double = EloSystem.defaultRating
+    var patternEloRating:      Double = EloSystem.defaultRating
+    var digitSpanEloRating:    Double = EloSystem.defaultRating
+    var stopSignalEloRating:   Double = EloSystem.defaultRating
+    var rotationEloRating:     Double = EloSystem.defaultRating
+    var wordHuntEloRating:     Double = EloSystem.defaultRating
+    var numberTrailEloRating:  Double = EloSystem.defaultRating
+
     // MARK: - Brain Snapshot
     var ageRange: String = ""               // "18-24" | "25-34" | "35-44" | "45-54" | "55+"
     var snapshotSessionCount: Int = 0
@@ -151,6 +166,13 @@ final class PlayerStats {
         mentalRotationBestScore = 0; mentalRotationBrainScore = 0; mentalRotationPlayCount = 0; mentalRotationLastPlayedDate = nil
         wordScrambleBestScore = 0; wordScrambleBrainScore = 0; wordScramblePlayCount = 0; wordScrambleLastPlayedDate = nil
         numberTrailBestTime = 0; numberTrailBrainScore = 0; numberTrailPlayCount = 0; numberTrailLastPlayedDate = nil
+        memoryEloRating = EloSystem.defaultRating; reflexEloRating = EloSystem.defaultRating
+        mathEloRating = EloSystem.defaultRating; stroopEloRating = EloSystem.defaultRating
+        flankerEloRating = EloSystem.defaultRating; spatialEloRating = EloSystem.defaultRating
+        visualSearchEloRating = EloSystem.defaultRating; patternEloRating = EloSystem.defaultRating
+        digitSpanEloRating = EloSystem.defaultRating; stopSignalEloRating = EloSystem.defaultRating
+        rotationEloRating = EloSystem.defaultRating; wordHuntEloRating = EloSystem.defaultRating
+        numberTrailEloRating = EloSystem.defaultRating
         totalXP = 0; lastPlayedDate = nil; dailyStreakCount = 0; lastStreakDate = nil
         unlockedAchievementIDs = ""
         dailyChallengeDate = nil
