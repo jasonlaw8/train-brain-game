@@ -38,7 +38,7 @@ final class NotificationManager {
         cancelReminder()
 
         let content = UNMutableNotificationContent()
-        content.title = "Train Brain"
+        content.title = "Brain Train"
         content.body = streakCount > 0
             ? "Keep your \(streakCount)-day streak alive! 5 minutes is all it takes."
             : "Your daily brain training is waiting. Stay sharp!"

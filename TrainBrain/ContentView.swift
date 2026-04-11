@@ -112,9 +112,9 @@ struct HomeView: View {
             Image(systemName: "brain")
                 .font(.system(size: 52))
                 .foregroundStyle(.blue)
-            Text("Train Brain")
+            Text("Brain Train")
                 .font(.largeTitle.bold())
-            Text("Challenge your mind daily")
+            Text("Train Your Brain")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             if stats.dailyStreakCount > 0 {

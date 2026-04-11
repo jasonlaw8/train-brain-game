@@ -533,7 +533,7 @@ struct SnapshotShareCard: View {
         HStack(spacing: 10) {
             Image(systemName: "brain.head.profile")
                 .font(.system(size: 20, weight: .semibold))
-            Text("Train Brain")
+            Text("Brain Train")
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
             Spacer()
             Text("Brain Snapshot")
@@ -582,7 +582,7 @@ struct SnapshotShareCard: View {
     private var shareCardFooter: some View {
         HStack {
             Spacer()
-            Text("trainbrain.app")
+            Text("braintrain.app")
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.45))
         }

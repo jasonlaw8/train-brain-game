@@ -40,7 +40,7 @@ struct ShareCardView: View {
                 HStack(spacing: 10) {
                     Image(systemName: gameIcon)
                         .font(.system(size: 22, weight: .semibold))
-                    Text("Train Brain")
+                    Text("Brain Train")
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                     Spacer()
                     Text(gameName)
@@ -78,7 +78,7 @@ struct ShareCardView: View {
                 // Watermark
                 HStack {
                     Spacer()
-                    Text("trainbrain.app")
+                    Text("braintrain.app")
                         .font(.system(size: 12, weight: .regular, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.50))
                 }

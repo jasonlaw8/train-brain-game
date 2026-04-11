@@ -59,7 +59,7 @@ struct OnboardingView: View {
                 BrainFactSlide(
                     icon: "chart.line.uptrend.xyaxis", iconColor: .indigo,
                     title: "Track Your Brain Score",
-                    message: "Train Brain measures four cognitive domains and gives you a Brain Score from 0 to 1000. Compare to people your age.",
+                    message: "Brain Train measures four cognitive domains and gives you a Brain Score from 0 to 1000. Compare to people your age.",
                     fact: "Studies show that tracking progress increases training consistency by up to 40%."
                 ) { withAnimation { currentPage += 1 } }
                     .tag(1)

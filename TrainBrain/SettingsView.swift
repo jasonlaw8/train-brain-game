@@ -112,14 +112,14 @@ struct SettingsView: View {
             // MARK: About
             Section("About") {
                 LabeledContent("App") {
-                    Text("TrainBrain").foregroundStyle(.secondary)
+                    Text("Brain Train").foregroundStyle(.secondary)
                 }
                 LabeledContent("Version") {
                     Text("1.0").foregroundStyle(.secondary)
                 }
                 HStack {
                     Spacer()
-                    Text("Train your brain daily")
+                    Text("Train Your Brain")
                         .font(.footnote).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     Spacer()
@@ -143,7 +143,7 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("To receive daily reminders, enable notifications for Train Brain in iOS Settings.")
+            Text("To receive daily reminders, enable notifications for Brain Train in iOS Settings.")
         }
     }
 

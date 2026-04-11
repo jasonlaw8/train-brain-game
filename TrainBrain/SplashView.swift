@@ -37,10 +37,10 @@ struct SplashView: View {
                     .opacity(iconOpacity)
 
                 VStack(spacing: 6) {
-                    Text("Train Brain")
+                    Text("Brain Train")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
-                    Text("Challenge your mind daily")
+                    Text("Train Your Brain")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
