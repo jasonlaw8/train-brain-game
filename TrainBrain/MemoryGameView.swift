@@ -1,87 +1,170 @@
 import SwiftUI
 import SwiftData
 
-// Simon Says: watch the tile sequence light up, then repeat it.
-// Scoring: each game records a GameSession with normalized brainScore based on level reached.
+// Echo Grid — Simon-says tile memory with musical tones, game modes, Elo, and combo scoring.
+
+// MARK: - Game Mode
+
+enum EchoGridMode: String, CaseIterable, Identifiable {
+    case classic = "Classic"
+    case reverse = "Reverse"
+    case chaos   = "Chaos"
+
+    var id: String { rawValue }
+
+    var description: String {
+        switch self {
+        case .classic: return "Repeat the sequence forward"
+        case .reverse: return "Replay backwards · 1.5× bonus"
+        case .chaos:   return "Tiles shuffle after each round"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .classic: return "square.grid.3x3.fill"
+        case .reverse: return "arrow.uturn.backward"
+        case .chaos:   return "shuffle"
+        }
+    }
+}
+
+// MARK: - ViewModel
 
 @MainActor
 class MemoryGameViewModel: ObservableObject {
+
+    // Base tile colors (9 tiles)
     private let tileColors: [Color] = [
         .red, .orange, .yellow, .green, .teal,
         .blue, .indigo, .purple, .pink
     ]
 
-    @Published var highlightedTile: Int? = nil
+    // Chaos mode: visual position mapping (index in grid → tile identity)
+    @Published var tileOrder: [Int] = Array(0..<9)   // tileOrder[gridPosition] = tileIdentity
+
+    @Published var highlightedTile: Int? = nil         // tile identity
     @Published var playerTurn = false
     @Published var gameState: GameState = .idle
     @Published var level = 1
-    @Published var score = 0
+    @Published var totalScore = 0
     @Published var message = "Tap Start to begin"
-    @Published var showNewBest = false
     @Published var finalScore = 0
     @Published var finalLevel = 0
-    @Published var unlockedAchievement: Achievement? = nil
-    @Published var leveledUpTo: Int? = nil
+    @Published var cascadeFlash: [Int] = []            // grid positions being cascade-flashed
+    @Published var activeGameMode: EchoGridMode = .classic
+    @Published var lastEarnedScore: Int? = nil
 
     enum GameState { case idle, playing, input, success, failure, gameOver }
 
-    private var sequence: [Int] = []
+    var sequence: [Int] = []           // tile identities in order
     private var playerInput: [Int] = []
     private var playbackTask: Task<Void, Never>?
-    private var difficulty: Difficulty = .medium
+    private var eloParams: EloSystem.MemoryParams = EloSystem.memoryParams(1000)
 
     var inputProgress: Int { playerInput.count }
     var sequenceLength: Int { sequence.count }
     var onGameOver: ((Int, Int) -> Void)?
+    var onRoundSuccess: ((Int, EchoGridMode) -> Void)?  // passes level & mode for scoring
 
-    func tileColor(at index: Int) -> Color {
-        let base = tileColors[index]
-        if highlightedTile == index { return base }
-        return base.opacity(playerTurn ? 0.45 : 0.25)
+    // MARK: Color helpers
+
+    func tileColor(at identity: Int) -> Color {
+        tileColors[identity % tileColors.count]
     }
 
-    func startGame(difficulty: Difficulty = .medium) {
-        self.difficulty = difficulty
+    /// Opacity for a tile at a given grid position (used during idle/input phases).
+    func gridTileOpacity(at gridPosition: Int) -> Double {
+        let identity = tileOrder[gridPosition]
+        if highlightedTile == identity { return 1.0 }
+        return 0.15
+    }
+
+    func gridTileIsHighlighted(at gridPosition: Int) -> Bool {
+        tileOrder[gridPosition] == highlightedTile
+    }
+
+    // MARK: Start
+
+    func startGame(mode: EchoGridMode, eloParams: EloSystem.MemoryParams) {
+        self.eloParams = eloParams
+        self.activeGameMode = mode
         playbackTask?.cancel()
         sequence = []
         playerInput = []
-        score = 0
+        totalScore = 0
         level = 1
+        tileOrder = Array(0..<9)
+        cascadeFlash = []
+        lastEarnedScore = nil
         gameState = .playing
         addAndPlay()
     }
 
-    func tileTapped(_ index: Int) {
-        guard playerTurn, gameState == .input else { return }
-        let expected = sequence[playerInput.count]
-        playerInput.append(index)
+    // MARK: Tile tap
 
-        if index != expected {
+    func tileTapped(at gridPosition: Int) {
+        guard playerTurn, gameState == .input else { return }
+        let identity = tileOrder[gridPosition]
+
+        // In reverse mode the expected order is reversed
+        let inputIndex = playerInput.count
+        let expectedIdentity: Int
+        if activeGameMode == .reverse {
+            expectedIdentity = sequence[sequence.count - 1 - inputIndex]
+        } else {
+            expectedIdentity = sequence[inputIndex]
+        }
+
+        playerInput.append(identity)
+
+        if identity != expectedIdentity {
+            SoundEngine.shared.playWrong()
             Haptics.error()
-            finalScore = score
+            finalScore = totalScore
             finalLevel = level
-            onGameOver?(score, level)
+            onGameOver?(totalScore, level)
             gameState = .gameOver
             playerTurn = false
             playbackTask?.cancel()
             return
         }
 
+        // Play tile tone on correct tap
+        SoundEngine.shared.playTone(frequency: SoundEngine.pentatonic[identity % SoundEngine.pentatonic.count],
+                                    duration: 0.18)
         Haptics.medium()
 
         if playerInput.count == sequence.count {
-            score += level * 10
-            level += 1
+            // Round complete — callback to view for combo+scoring
+            onRoundSuccess?(level, activeGameMode)
             gameState = .success
             playerTurn = false
-            message = "Nice! +\(sequence.count * 10) pts"
+            // Trigger cascade flash then advance
             playbackTask = Task {
-                try? await Task.sleep(for: .seconds(0.9))
+                await triggerCascadeFlash()
                 guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .seconds(0.6))
+                guard !Task.isCancelled else { return }
+                level += 1
                 addAndPlay()
             }
         }
     }
+
+    // MARK: Cascade flash
+
+    private func triggerCascadeFlash() async {
+        SoundEngine.shared.playMelodyCascade(tileCount: 9)
+        for pos in 0..<9 {
+            cascadeFlash.append(pos)
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        try? await Task.sleep(for: .milliseconds(300))
+        cascadeFlash = []
+    }
+
+    // MARK: Add & play sequence
 
     private func addAndPlay() {
         playerInput = []
@@ -90,14 +173,24 @@ class MemoryGameViewModel: ObservableObject {
         sequence.append(Int.random(in: 0..<9))
         message = "Watch carefully…"
 
-        let highlight = difficulty.memoryHighlightDuration
-        let pause = difficulty.memoryPauseDuration
+        // Chaos mode: shuffle after success (not on first round)
+        if activeGameMode == .chaos && sequence.count > 1 {
+            tileOrder.shuffle()
+        }
+
+        let highlight = eloParams.highlightDuration
+        let pause     = eloParams.pauseDuration
 
         playbackTask = Task {
             try? await Task.sleep(for: .seconds(0.4))
-            for (i, tile) in sequence.enumerated() {
+            for (i, tileIdentity) in sequence.enumerated() {
                 guard !Task.isCancelled else { return }
-                highlightedTile = tile
+                highlightedTile = tileIdentity
+                // Play each tile's unique pentatonic tone
+                SoundEngine.shared.playTone(
+                    frequency: SoundEngine.pentatonic[tileIdentity % SoundEngine.pentatonic.count],
+                    duration: 0.18
+                )
                 try? await Task.sleep(for: .seconds(highlight))
                 guard !Task.isCancelled else { return }
                 highlightedTile = nil
@@ -106,19 +199,30 @@ class MemoryGameViewModel: ObservableObject {
                     guard !Task.isCancelled else { return }
                     playerTurn = true
                     gameState = .input
-                    message = "Your turn — \(sequence.count) tap\(sequence.count == 1 ? "" : "s")"
+                    let tapCount = sequence.count
+                    if activeGameMode == .reverse {
+                        message = "↩ REVERSE — \(tapCount) tap\(tapCount == 1 ? "" : "s") backwards"
+                    } else {
+                        message = "Your turn — \(tapCount) tap\(tapCount == 1 ? "" : "s")"
+                    }
                 }
             }
         }
     }
 }
 
+// MARK: - View
+
 struct MemoryGameView: View {
-    @StateObject private var vm = MemoryGameViewModel()
+    @StateObject private var vm    = MemoryGameViewModel()
+    @StateObject private var combo = ComboTracker()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
     @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("memoryDifficulty") private var difficulty: Difficulty = .medium
+    @State private var selectedMode: EchoGridMode = .classic
+    @State private var showGameOver = false
+    @State private var gameResult: GameResult? = nil
 
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
@@ -131,83 +235,93 @@ struct MemoryGameView: View {
 
     var body: some View {
         ZStack {
-            gameContent
-
-            if vm.showNewBest {
-                NewBestBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(10)
-            }
-            if let level = vm.leveledUpTo {
-                LevelUpBanner(level: level)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(11)
-            }
-            if let achievement = vm.unlockedAchievement {
-                AchievementUnlockedBanner(achievement: achievement)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(12)
+            if showGameOver, let result = gameResult {
+                GameOverView(result: result) {
+                    showGameOver = false
+                    gameResult = nil
+                    startGame()
+                }
+                .transition(.opacity)
+            } else {
+                playScreen
             }
         }
-        .animation(.spring(response: 0.4), value: vm.showNewBest)
-        .animation(.spring(response: 0.4), value: vm.leveledUpTo)
-        .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Memory")
+        .animation(.easeInOut(duration: 0.25), value: showGameOver)
+        .navigationTitle("Echo Grid")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            vm.onGameOver = { score, level in
-                let isNewBest = score > stats.memoryBestScore
-                let brainScore = PlayerStats.memoryBrainScore(level: level)
-                let session = GameSession(
-                    gameType: "memory",
-                    rawScore: level,
-                    brainScore: brainScore,
-                    difficulty: difficulty.rawValue
-                )
-                modelContext.insert(session)
-                let leveledUp = stats.recordMemoryGame(score: score, level: level)
-                let newAchievements = checkAndUnlock(stats: stats)
-                if isNewBest && score > 0 {
-                    vm.showNewBest = true
-                    Haptics.success()
-                    Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
-                }
-                if leveledUp {
-                    vm.leveledUpTo = stats.playerLevel
-                    Task { try? await Task.sleep(for: .seconds(2.5)); vm.leveledUpTo = nil }
-                }
-                if let first = newAchievements.first {
-                    let delay = (isNewBest || leveledUp) ? 2.8 : 0.3
-                    Task {
-                        try? await Task.sleep(for: .seconds(delay))
-                        vm.unlockedAchievement = first
-                        Haptics.success()
-                        try? await Task.sleep(for: .seconds(3))
-                        vm.unlockedAchievement = nil
-                    }
-                }
-            }
+            setupHandlers()
         }
     }
 
-    @ViewBuilder
-    var gameContent: some View {
-        if vm.gameState == .gameOver {
-            gameOverScreen
-        } else {
-            playScreen
+    // MARK: - Setup
+
+    private func setupHandlers() {
+        vm.onRoundSuccess = { level, mode in
+            combo.markCorrect()
+            let base = level * 10
+            let modeMultiplied = mode == .reverse ? Int(Double(base) * 1.5) : base
+            let earned = combo.apply(modeMultiplied)
+            vm.totalScore += earned
+            vm.lastEarnedScore = earned
+            vm.message = "+\(earned) pts"
         }
+
+        vm.onGameOver = { score, level in
+            combo.markWrong()
+            let isNewBest = score > stats.memoryBestScore
+            let brainScore = PlayerStats.memoryBrainScore(level: level)
+            let session = GameSession(
+                gameType: "memory",
+                rawScore: level,
+                brainScore: brainScore,
+                difficulty: difficulty.rawValue
+            )
+            modelContext.insert(session)
+            stats.recordMemoryGame(score: score, level: level)
+
+            // Update Elo
+            stats.memoryEloRating = EloSystem.updated(stats.memoryEloRating, correct: level >= 5)
+
+            let result = GameResult(
+                gameTitle: "Echo Grid",
+                primaryScore: score,
+                primaryLabel: "pts",
+                brainScore: brainScore,
+                previousBrainScore: stats.memoryBrainScore,
+                isNewBest: isNewBest,
+                multiplierBreakdown: nil,
+                percentileText: PlayerStats.percentileLabel(for: brainScore),
+                accentColor: .blue,
+                share: .init(
+                    gameName: "Echo Grid",
+                    icon: "square.grid.3x3.fill",
+                    color: .blue,
+                    primaryValue: "\(score)",
+                    primaryLabel: "pts",
+                    secondaryLine: "Level \(level)"
+                )
+            )
+            gameResult = result
+            withAnimation { showGameOver = true }
+        }
+    }
+
+    private func startGame() {
+        let params = EloSystem.memoryParams(stats.memoryEloRating)
+        combo.reset()
+        vm.startGame(mode: selectedMode, eloParams: params)
     }
 
     // MARK: - Play Screen
 
     var playScreen: some View {
-        VStack(spacing: 20) {
-            // Score row with animated numbers
-            HStack {
+        VStack(spacing: 16) {
+            // Top bar: score, level, best + combo badge
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Score").font(.caption.smallCaps()).foregroundStyle(.secondary)
-                    AnimatedScoreText(value: vm.score, font: .title2.bold(), color: .blue)
+                    AnimatedScoreText(value: vm.totalScore, font: .title2.bold(), color: .blue)
                 }
                 Spacer()
                 VStack(alignment: .center, spacing: 2) {
@@ -223,16 +337,30 @@ struct MemoryGameView: View {
                 }
             }
             .padding(.horizontal)
+            .overlay(alignment: .topTrailing) {
+                MultiplierBadgeView(combo: combo, color: .blue)
+                    .offset(y: -8)
+            }
 
-            Text(vm.message)
-                .font(.headline)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(messageColor)
-                .animation(.easeInOut(duration: 0.2), value: vm.message)
-                .frame(minHeight: 24)
+            // Mode-specific banner or message
+            VStack(spacing: 4) {
+                if vm.gameState == .input && vm.activeGameMode == .reverse {
+                    Text("↩ REVERSE")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(Color.purple.gradient, in: Capsule())
+                }
+                Text(vm.message)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(messageColor)
+                    .animation(.easeInOut(duration: 0.2), value: vm.message)
+            }
+            .frame(minHeight: 40)
 
             // Progress dots during input
-            if vm.playerTurn || vm.gameState == .input {
+            if vm.gameState == .input {
                 HStack(spacing: 6) {
                     ForEach(0..<vm.sequenceLength, id: \.self) { i in
                         Circle()
@@ -247,32 +375,76 @@ struct MemoryGameView: View {
 
             // Tile grid
             LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(0..<9, id: \.self) { index in
+                ForEach(0..<9, id: \.self) { gridPosition in
+                    let identity = vm.tileOrder[gridPosition]
+                    let tileColor = vm.tileColor(at: identity)
+                    let isHighlighted = vm.highlightedTile == identity
+                    let isCascade = vm.cascadeFlash.contains(gridPosition)
+
                     RoundedRectangle(cornerRadius: 18)
-                        .fill(vm.tileColor(at: index))
-                        .aspectRatio(1, contentMode: .fit)
-                        .scaleEffect(vm.highlightedTile == index ? 1.08 : 1.0)
-                        .shadow(
-                            color: vm.highlightedTile == index
-                                ? vm.tileColor(at: index).opacity(0.6) : .clear,
-                            radius: 12
+                        .fill(
+                            (isHighlighted || isCascade)
+                                ? tileColor
+                                : tileColor.opacity(vm.gridTileOpacity(at: gridPosition))
                         )
-                        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: vm.highlightedTile)
-                        .onTapGesture { vm.tileTapped(index) }
+                        .aspectRatio(1, contentMode: .fit)
+                        // Always-on inner glow
+                        .shadow(
+                            color: tileColor.opacity(0.10),
+                            radius: 4
+                        )
+                        // Highlight/cascade colored shadow
+                        .shadow(
+                            color: (isHighlighted || isCascade) ? tileColor.opacity(0.40) : .clear,
+                            radius: 8
+                        )
+                        .scaleEffect(isHighlighted ? 1.08 : 1.0)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isHighlighted)
+                        .animation(.easeOut(duration: 0.1), value: isCascade)
+                        .onTapGesture {
+                            guard vm.playerTurn else { return }
+                            vm.tileTapped(at: gridPosition)
+                        }
                 }
             }
             .padding(.horizontal)
 
             Spacer()
 
-            // Difficulty + Start
+            // Pre-game controls
             if vm.gameState == .idle {
-                DifficultyPicker(difficulty: $difficulty)
-                    .padding(.horizontal)
+                VStack(spacing: 12) {
+                    // Mode picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Mode")
+                            .font(.caption.smallCaps())
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(EchoGridMode.allCases) { mode in
+                                    ModeChip(
+                                        mode: mode,
+                                        isSelected: selectedMode == mode
+                                    ) { selectedMode = mode }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // Elo tier badge
+                    EloBadge(rating: stats.memoryEloRating, color: .blue)
+                        .padding(.horizontal)
+
+                    DifficultyPicker(difficulty: $difficulty)
+                        .padding(.horizontal)
+                }
             }
 
             Button {
-                vm.startGame(difficulty: difficulty)
+                startGame()
             } label: {
                 Text(vm.gameState == .idle ? "Start" : "Restart")
                     .font(.title3.bold())
@@ -282,94 +454,89 @@ struct MemoryGameView: View {
                     .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
             }
             .padding(.horizontal)
+            .padding(.bottom, 8)
             .disabled(vm.gameState == .playing || vm.gameState == .input || vm.gameState == .success)
             .opacity(vm.gameState == .playing || vm.gameState == .input || vm.gameState == .success ? 0.4 : 1)
         }
         .padding(.vertical)
     }
 
-    // MARK: - Game Over Screen
-
-    var gameOverScreen: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            VStack(spacing: 24) {
-                Image(systemName: "brain")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.blue)
-
-                Text("Game Over")
-                    .font(.largeTitle.bold())
-
-                VStack(spacing: 12) {
-                    resultRow(label: "Score",         value: "\(vm.finalScore)", color: .blue)
-                    resultRow(label: "Level Reached", value: "\(vm.finalLevel)", color: .indigo)
-                    Divider()
-                    let bs = PlayerStats.memoryBrainScore(level: vm.finalLevel)
-                    resultRow(label: "Brain Score",   value: "\(bs)", color: .blue)
-                    resultRow(label: "vs. Average",
-                              value: PlayerStats.percentileLabel(for: bs),
-                              color: bs >= 100 ? .green : .orange)
-                    Divider()
-                    resultRow(label: "All-Time Best", value: "\(stats.memoryBestScore)", color: .secondary)
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal)
-
-                if vm.finalScore > 0 && vm.finalScore == stats.memoryBestScore {
-                    Label("New personal best!", systemImage: "star.fill")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.yellow)
-                }
-            }
-            Spacer()
-
-            DifficultyPicker(difficulty: $difficulty)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-
-            ShareResultButton(
-                gameName: "Memory", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
-                primaryValue: "\(vm.finalScore)", primaryLabel: "pts",
-                secondaryLine: "Level \(vm.finalLevel)"
-            )
-            .padding(.horizontal)
-            .padding(.bottom, 8)
-
-            Button {
-                vm.startGame(difficulty: difficulty)
-            } label: {
-                Text("Play Again")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 20)
-        }
-    }
-
-    func resultRow(label: String, value: String, color: Color) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).font(.title3.bold()).foregroundStyle(color)
-        }
-    }
-
     var messageColor: Color {
         switch vm.gameState {
         case .failure: return .red
         case .success: return .green
-        default: return .primary
+        default:       return .primary
         }
     }
 }
 
-// MARK: - Shared UI
+// MARK: - Mode Chip
+
+private struct ModeChip: View {
+    let mode: EchoGridMode
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Image(systemName: mode.icon)
+                        .font(.caption2)
+                    Text(mode.rawValue)
+                        .font(.subheadline.bold())
+                }
+                Text(mode.description)
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? .white.opacity(0.85) : .secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                isSelected
+                    ? Color.blue.gradient
+                    : Color(.secondarySystemBackground).gradient,
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+            .foregroundStyle(isSelected ? .white : .primary)
+        }
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 150)
+    }
+}
+
+// MARK: - Elo Badge
+
+struct EloBadge: View {
+    let rating: Double
+    let color: Color
+
+    private var tier: String {
+        switch rating {
+        case ..<900:      return "Beginner"
+        case 900..<1100:  return "Intermediate"
+        case 1100..<1300: return "Advanced"
+        default:          return "Expert"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "gauge.with.dots.needle.67percent")
+                .font(.caption)
+            Text("Auto · \(tier)")
+                .font(.caption.bold())
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(color.opacity(0.12), in: Capsule())
+    }
+}
+
+// MARK: - Shared UI helpers
 
 struct StatBadge: View {
     let label: String

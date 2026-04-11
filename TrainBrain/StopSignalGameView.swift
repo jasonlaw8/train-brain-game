@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-// Stop Signal (Brake Test): Tap the circle on GO trials. Don't tap on STOP trials (red border).
-// 30 total trials, roughly 22–23 GO + 7–8 STOP.
+// Bug Catcher: Tap the butterfly on GO trials. Don't tap when the ladybug warning appears.
+// 30 total trials, ~25% STOP rate (7–8 STOP trials), 1200 ms response window.
 
 // MARK: - ViewModel
 
@@ -13,45 +13,47 @@ class StopSignalViewModel: ObservableObject {
 
     @Published var gameState: GameState = .idle
     @Published var trialPhase: TrialPhase = .blank
-    @Published var showStopBorder: Bool = false
-    @Published var feedbackIcon: String? = nil   // "checkmark.circle.fill", "xmark.circle.fill"
-    @Published var feedbackColor: Color = .green
+    @Published var showStopSignal: Bool = false
     @Published var trialsCompleted: Int = 0
     @Published var correctCount: Int = 0
     @Published var totalTrials: Int = 30
-    @Published var showNewBest = false
-    @Published var unlockedAchievement: Achievement? = nil
-    @Published var leveledUpTo: Int? = nil
     @Published var finalAccuracy: Int = 0
     @Published var finalBrainScore: Int = 0
+
+    // Feedback state
+    @Published var feedbackKind: FeedbackKind? = nil
+    // Juice triggers (toggled to fire modifiers)
+    @Published var bounceGO: Bool = false
+    @Published var dimStop: Bool = false
+
+    enum FeedbackKind {
+        case correctGO        // green check
+        case missedGO         // orange x
+        case correctStop      // shield + "+15 Control"
+        case falseAlarm       // red x
+    }
 
     var onGameOver: ((Int) -> Void)?  // passes accuracy %
 
     private var difficulty: Difficulty = .medium
+    private var eloStopDelay: Double = 0.225  // seconds
     private var currentIsStop: Bool = false
     private var playerTapped: Bool = false
     private var trialTask: Task<Void, Never>?
 
-    // Stop signal delay in ms
-    private var stopDelayMs: Int {
-        switch difficulty {
-        case .easy:   return 250
-        case .medium: return 200
-        case .hard:   return 150
-        }
-    }
-
-    func startGame(difficulty: Difficulty) {
+    func startGame(difficulty: Difficulty, stopDelay: Double) {
         self.difficulty = difficulty
+        self.eloStopDelay = stopDelay
         trialsCompleted = 0
         correctCount = 0
-        feedbackIcon = nil
+        feedbackKind = nil
         gameState = .playing
         runNextTrial()
     }
 
     func playerTap() {
-        guard gameState == .playing, trialPhase == .go || trialPhase == .stop else { return }
+        guard gameState == .playing,
+              trialPhase == .go || trialPhase == .stop else { return }
         playerTapped = true
     }
 
@@ -60,10 +62,10 @@ class StopSignalViewModel: ObservableObject {
         trialTask = Task {
             // Blank interval
             trialPhase = .blank
-            showStopBorder = false
-            feedbackIcon = nil
+            showStopSignal = false
+            feedbackKind = nil
             playerTapped = false
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else { return }
 
             // 25% chance of STOP trial
@@ -71,28 +73,26 @@ class StopSignalViewModel: ObservableObject {
             trialPhase = .go
             let startTime = Date()
 
-            // For stop trials: show stop border after delay
+            // For stop trials: show ladybug stop signal after delay
             if currentIsStop {
-                try? await Task.sleep(for: .milliseconds(stopDelayMs))
+                try? await Task.sleep(for: .seconds(eloStopDelay))
                 guard !Task.isCancelled else { return }
                 if !playerTapped {
-                    showStopBorder = true
+                    showStopSignal = true
                     trialPhase = .stop
                     Haptics.light()
                 }
             }
 
-            // Wait for remainder of 1200ms response window
+            // Wait for remainder of 1200 ms response window
             let elapsed = Int(-startTime.timeIntervalSinceNow * 1000)
             let remaining = max(0, 1200 - elapsed)
             try? await Task.sleep(for: .milliseconds(remaining))
             guard !Task.isCancelled else { return }
 
-            // Evaluate result
             evaluateTrial()
 
-            // Feedback duration
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .milliseconds(700))
             guard !Task.isCancelled else { return }
 
             trialsCompleted += 1
@@ -106,32 +106,34 @@ class StopSignalViewModel: ObservableObject {
 
     private func evaluateTrial() {
         trialPhase = .feedback
-        showStopBorder = false
+        showStopSignal = false
 
         if currentIsStop {
             if playerTapped {
                 // False alarm — tapped on stop
-                feedbackIcon = "xmark.circle.fill"
-                feedbackColor = .red
+                feedbackKind = .falseAlarm
+                dimStop = !dimStop
+                SoundEngine.shared.playWrong()
                 Haptics.error()
             } else {
                 // Correct inhibition
-                feedbackIcon = "checkmark.circle.fill"
-                feedbackColor = .green
+                feedbackKind = .correctStop
                 correctCount += 1
+                SoundEngine.shared.playSuccess()
                 Haptics.light()
             }
         } else {
             if playerTapped {
-                // Correct go
-                feedbackIcon = "checkmark.circle.fill"
-                feedbackColor = .green
+                // Correct GO tap
+                feedbackKind = .correctGO
                 correctCount += 1
-                Haptics.light()
+                bounceGO = !bounceGO
+                SoundEngine.shared.playCorrect()
+                Haptics.medium()
             } else {
-                // Miss — didn't tap on go trial
-                feedbackIcon = "xmark.circle.fill"
-                feedbackColor = .orange
+                // Miss — didn't tap on GO trial
+                feedbackKind = .missedGO
+                SoundEngine.shared.playWrong()
                 Haptics.error()
             }
         }
@@ -140,10 +142,10 @@ class StopSignalViewModel: ObservableObject {
     private func endGame() {
         trialTask?.cancel()
         trialPhase = .blank
-        feedbackIcon = nil
+        feedbackKind = nil
         let accuracy = Int(Double(correctCount) / Double(totalTrials) * 100)
         finalAccuracy = accuracy
-        finalBrainScore = max(70, min(145, accuracy + 18))
+        finalBrainScore = PlayerStats.stopSignalBrainScore(accuracy: accuracy)
         onGameOver?(accuracy)
         gameState = .gameOver
     }
@@ -157,6 +159,9 @@ struct StopSignalGameView: View {
     @Query private var statsQuery: [PlayerStats]
     @AppStorage("stopSignalDifficulty") private var difficulty: Difficulty = .medium
 
+    // Float animation for the GO butterfly target
+    @State private var floatOffset: CGFloat = 0
+
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
         let s = PlayerStats()
@@ -164,63 +169,47 @@ struct StopSignalGameView: View {
         return s
     }
 
+    private var eloParams: EloSystem.StopSignalParams {
+        EloSystem.stopSignalParams(stats.stopSignalEloRating)
+    }
+
     var body: some View {
         ZStack {
             mainContent
-
-            if vm.showNewBest {
-                NewBestBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(10)
-            }
-            if let level = vm.leveledUpTo {
-                LevelUpBanner(level: level)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(11)
-            }
-            if let achievement = vm.unlockedAchievement {
-                AchievementUnlockedBanner(achievement: achievement)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(12)
-            }
         }
-        .animation(.spring(response: 0.4), value: vm.showNewBest)
-        .animation(.spring(response: 0.4), value: vm.leveledUpTo)
-        .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Brake Test")
+        .navigationTitle("Bug Catcher")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            startFloatAnimation()
             vm.onGameOver = { accuracy in
                 let isNewBest = accuracy > stats.stopSignalBestAccuracy
+                let brainScore = PlayerStats.stopSignalBrainScore(accuracy: accuracy)
                 let session = GameSession(
                     gameType: "stopsignal",
                     rawScore: accuracy,
-                    brainScore: max(70, min(145, accuracy + 18)),
+                    brainScore: brainScore,
                     difficulty: difficulty.rawValue
                 )
                 modelContext.insert(session)
-                let leveledUp = stats.recordStopSignalGame(accuracy: accuracy)
-                let newAchievements = checkAndUnlock(stats: stats)
+                stats.recordStopSignalGame(accuracy: accuracy)
+                // Elo update
+                stats.stopSignalEloRating = EloSystem.updated(
+                    stats.stopSignalEloRating,
+                    correct: Double(accuracy) / 100.0 > 0.80
+                )
                 if isNewBest && accuracy > 0 {
-                    vm.showNewBest = true
                     Haptics.success()
-                    Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
-                }
-                if leveledUp {
-                    vm.leveledUpTo = stats.playerLevel
-                    Task { try? await Task.sleep(for: .seconds(2.5)); vm.leveledUpTo = nil }
-                }
-                if let first = newAchievements.first {
-                    let delay = (isNewBest || leveledUp) ? 2.8 : 0.3
-                    Task {
-                        try? await Task.sleep(for: .seconds(delay))
-                        vm.unlockedAchievement = first
-                        Haptics.success()
-                        try? await Task.sleep(for: .seconds(3))
-                        vm.unlockedAchievement = nil
-                    }
                 }
             }
+        }
+    }
+
+    private func startFloatAnimation() {
+        withAnimation(
+            .easeInOut(duration: 1.2)
+            .repeatForever(autoreverses: true)
+        ) {
+            floatOffset = 4
         }
     }
 
@@ -239,21 +228,39 @@ struct StopSignalGameView: View {
         VStack(spacing: 0) {
             Spacer()
             VStack(spacing: 16) {
-                Image(systemName: "stop.circle.fill")
-                    .font(.system(size: 72))
-                    .foregroundStyle(.red)
-                Text("Brake Test")
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 100, height: 100)
+                    Image(systemName: "ladybug.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle(.red)
+                }
+
+                Text("Bug Catcher")
                     .font(.largeTitle.bold())
-                Text("Tap the circle when it appears.\nBut if a red border flashes — STOP!")
+
+                Text("Tap the butterfly when it appears.\nBut if a ladybug shows — DON'T tap!")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
+
                 if stats.stopSignalBestAccuracy > 0 {
-                    Label("Best: \(stats.stopSignalBestAccuracy)% accuracy", systemImage: "trophy.fill")
+                    Label("Best: \(stats.stopSignalBestAccuracy)% control", systemImage: "trophy.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
                 }
+
+                HStack(spacing: 6) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.caption)
+                    Text("Auto difficulty")
+                        .font(.caption.bold())
+                }
+                .foregroundStyle(.green)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Color.green.opacity(0.12), in: Capsule())
             }
             Spacer()
 
@@ -261,13 +268,15 @@ struct StopSignalGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button {
+                vm.startGame(difficulty: difficulty, stopDelay: eloParams.stopDelay)
+            } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color.green, in: RoundedRectangle(cornerRadius: 16))
             }
             .padding(.horizontal)
             .padding(.bottom, 20)
@@ -279,9 +288,9 @@ struct StopSignalGameView: View {
     var playView: some View {
         VStack(spacing: 20) {
             HStack {
-                StatBadge(label: "Trial", value: "\(vm.trialsCompleted + 1)/\(vm.totalTrials)", color: .red)
+                StatBadge(label: "Trial", value: "\(vm.trialsCompleted + 1)/\(vm.totalTrials)", color: .green)
                 Spacer()
-                StatBadge(label: "Correct", value: "\(vm.correctCount)", color: .green)
+                StatBadge(label: "Correct", value: "\(vm.correctCount)", color: .teal)
                 Spacer()
                 StatBadge(label: "Best", value: "\(stats.stopSignalBestAccuracy)%", color: .secondary)
             }
@@ -293,7 +302,7 @@ struct StopSignalGameView: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color(.systemGray5))
                     Capsule()
-                        .fill(Color.red)
+                        .fill(Color.green)
                         .frame(width: geo.size.width * CGFloat(vm.trialsCompleted) / CGFloat(vm.totalTrials))
                         .animation(.linear(duration: 0.3), value: vm.trialsCompleted)
                 }
@@ -304,43 +313,101 @@ struct StopSignalGameView: View {
             Spacer()
 
             ZStack {
-                // Main circle (only visible during go/stop)
+                // GO / STOP target area
                 if vm.trialPhase == .go || vm.trialPhase == .stop {
                     Button {
                         vm.playerTap()
                     } label: {
-                        Circle()
-                            .fill(Color.red.opacity(0.85))
-                            .frame(width: 140, height: 140)
-                            .overlay(
-                                Circle()
-                                    .stroke(vm.showStopBorder ? Color.red : Color.clear, lineWidth: 8)
-                                    .scaleEffect(vm.showStopBorder ? 1.12 : 1.0)
-                                    .animation(.easeOut(duration: 0.1), value: vm.showStopBorder)
-                            )
+                        goTargetView
+                            .offset(y: floatOffset)
                     }
                     .buttonStyle(.plain)
                     .transition(.scale.combined(with: .opacity))
+                    .juiceBounce(trigger: vm.bounceGO)
+                    .juiceDim(trigger: vm.dimStop)
                 }
 
-                // Feedback icon
-                if let icon = vm.feedbackIcon {
-                    Image(systemName: icon)
-                        .font(.system(size: 64))
-                        .foregroundStyle(vm.feedbackColor)
-                        .transition(.scale.combined(with: .opacity))
-                }
+                // Feedback overlay
+                feedbackOverlay
             }
-            .animation(.easeInOut(duration: 0.15), value: vm.trialPhase)
-            .animation(.easeInOut(duration: 0.15), value: vm.feedbackIcon)
-            .frame(height: 180)
+            .animation(.easeInOut(duration: 0.18), value: vm.trialPhase)
+            .frame(height: 220)
 
             Text(instructionText)
                 .font(.headline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(instructionColor)
                 .animation(nil, value: vm.trialPhase)
 
             Spacer()
+        }
+    }
+
+    // Butterfly (GO) target with optional ladybug (STOP) overlay
+    var goTargetView: some View {
+        ZStack {
+            // Background garden circle
+            Circle()
+                .fill(
+                    vm.showStopSignal
+                        ? Color.red.opacity(0.15)
+                        : Color.green.opacity(0.15)
+                )
+                .frame(width: 140, height: 140)
+
+            // Butterfly (always visible during GO/STOP phase)
+            Image(systemName: "figure.walk")
+                .font(.system(size: 56))
+                .foregroundStyle(.green)
+                .rotationEffect(.degrees(-15))
+
+            // Ladybug stop overlay
+            if vm.showStopSignal {
+                Image(systemName: "ladybug.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.red)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: vm.showStopSignal)
+    }
+
+    // Feedback shown after a trial resolves
+    @ViewBuilder
+    var feedbackOverlay: some View {
+        if vm.trialPhase == .feedback {
+            switch vm.feedbackKind {
+            case .correctGO:
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.green)
+                    .transition(.scale.combined(with: .opacity))
+
+            case .missedGO:
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.orange)
+                    .transition(.scale.combined(with: .opacity))
+
+            case .correctStop:
+                VStack(spacing: 6) {
+                    Image(systemName: "shield.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(.green)
+                    Text("+15 Control")
+                        .font(.headline.bold())
+                        .foregroundStyle(.green)
+                }
+                .transition(.scale.combined(with: .opacity))
+
+            case .falseAlarm:
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.red)
+                    .transition(.scale.combined(with: .opacity))
+
+            case nil:
+                EmptyView()
+            }
         }
     }
 
@@ -353,83 +420,40 @@ struct StopSignalGameView: View {
         }
     }
 
+    var instructionColor: Color {
+        switch vm.trialPhase {
+        case .stop: return .red
+        case .go:   return .green
+        default:    return .secondary
+        }
+    }
+
     // MARK: - Game Over
 
     var gameOverView: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            VStack(spacing: 24) {
-                Image(systemName: "stop.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.red)
-
-                Text("Test Complete!")
-                    .font(.largeTitle.bold())
-
-                VStack(spacing: 12) {
-                    resultRow("Accuracy",     value: "\(vm.finalAccuracy)%",    color: .red)
-                    resultRow("Correct",      value: "\(vm.correctCount)/\(vm.totalTrials)", color: .green)
-                    Divider()
-                    resultRow("Brain Score",  value: "\(vm.finalBrainScore)",   color: .indigo)
-                    resultRow("All-Time Best", value: "\(stats.stopSignalBestAccuracy)% accuracy", color: .secondary)
-                    Divider()
-                    resultRow("vs. Average",
-                              value: PlayerStats.percentileLabel(for: vm.finalBrainScore),
-                              color: scoreColor(vm.finalBrainScore))
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal)
-
-                if vm.finalAccuracy > 0 && vm.finalAccuracy == stats.stopSignalBestAccuracy {
-                    Label("New personal best!", systemImage: "star.fill")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.yellow)
-                }
-            }
-            Spacer()
-
-            DifficultyPicker(difficulty: $difficulty)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-
-            ShareResultButton(
-                gameName: "Brake Test",
-                gameIcon: "stop.circle.fill",
-                gameColor: .red,
+        let brainScore = PlayerStats.stopSignalBrainScore(accuracy: vm.finalAccuracy)
+        let result = GameResult(
+            gameTitle: "Bug Catcher",
+            primaryScore: vm.finalAccuracy,
+            primaryLabel: "% control",
+            brainScore: brainScore,
+            previousBrainScore: stats.stopSignalBrainScore,
+            isNewBest: vm.finalAccuracy > 0 && vm.finalAccuracy >= stats.stopSignalBestAccuracy,
+            multiplierBreakdown: nil,
+            percentileText: PlayerStats.percentileLabel(for: brainScore),
+            accentColor: .green,
+            share: GameResult.ShareConfig(
+                gameName: "Bug Catcher",
+                icon: "ant.fill",
+                color: .green,
                 primaryValue: "\(vm.finalAccuracy)",
-                primaryLabel: "% accuracy",
-                secondaryLine: "Brain Score: \(vm.finalBrainScore)"
+                primaryLabel: "% control",
+                secondaryLine: "Impulse Control Score"
             )
-            .padding(.horizontal)
-            .padding(.bottom, 8)
-
-            Button { vm.startGame(difficulty: difficulty) } label: {
-                Text("Play Again")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 20)
+        )
+        return GameOverView(result: result) {
+            vm.startGame(difficulty: difficulty, stopDelay: eloParams.stopDelay)
         }
-    }
-
-    func resultRow(_ label: String, value: String, color: Color) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).font(.title3.bold()).foregroundStyle(color)
-        }
-    }
-
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
     }
 }
 
