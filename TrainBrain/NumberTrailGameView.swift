@@ -1,67 +1,156 @@
 import SwiftUI
 import SwiftData
 
-// Number Trail: Tap numbered circles in order (1→N) as fast as possible.
-// 3 rounds. Score = average completion time.
+// MARK: - Dot Connect (was Number Trail)
+// Connect the dots to reveal a hidden picture. 3 rounds, lower avg time is better.
+
+// MARK: - DotPicture Library
+
+struct DotPicture {
+    let name: String
+    let points: [CGPoint]   // normalized 0–1 coordinates
+}
+
+private let dotPictures: [DotPicture] = [
+    DotPicture(name: "House", points: [
+        CGPoint(x:0.5, y:0.1), CGPoint(x:0.9, y:0.4), CGPoint(x:0.8, y:0.4),
+        CGPoint(x:0.8, y:0.9), CGPoint(x:0.2, y:0.9), CGPoint(x:0.2, y:0.4),
+        CGPoint(x:0.1, y:0.4), CGPoint(x:0.5, y:0.1)
+    ]),
+    DotPicture(name: "Star", points: [
+        CGPoint(x:0.5, y:0.05), CGPoint(x:0.62, y:0.35), CGPoint(x:0.95, y:0.35),
+        CGPoint(x:0.69, y:0.55), CGPoint(x:0.79, y:0.88), CGPoint(x:0.5, y:0.68),
+        CGPoint(x:0.21, y:0.88), CGPoint(x:0.31, y:0.55), CGPoint(x:0.05, y:0.35),
+        CGPoint(x:0.38, y:0.35), CGPoint(x:0.5, y:0.05)
+    ]),
+    DotPicture(name: "Heart", points: [
+        CGPoint(x:0.5, y:0.9), CGPoint(x:0.1, y:0.5), CGPoint(x:0.1, y:0.3),
+        CGPoint(x:0.3, y:0.1), CGPoint(x:0.5, y:0.3), CGPoint(x:0.7, y:0.1),
+        CGPoint(x:0.9, y:0.3), CGPoint(x:0.9, y:0.5), CGPoint(x:0.5, y:0.9)
+    ]),
+    DotPicture(name: "Fish", points: [
+        CGPoint(x:0.1, y:0.5), CGPoint(x:0.2, y:0.3), CGPoint(x:0.4, y:0.2),
+        CGPoint(x:0.6, y:0.2), CGPoint(x:0.8, y:0.3), CGPoint(x:0.9, y:0.5),
+        CGPoint(x:0.8, y:0.7), CGPoint(x:0.6, y:0.8), CGPoint(x:0.4, y:0.8),
+        CGPoint(x:0.2, y:0.7), CGPoint(x:0.1, y:0.5)
+    ]),
+    DotPicture(name: "Arrow", points: [
+        CGPoint(x:0.5, y:0.05), CGPoint(x:0.95, y:0.5), CGPoint(x:0.7, y:0.5),
+        CGPoint(x:0.7, y:0.95), CGPoint(x:0.3, y:0.95), CGPoint(x:0.3, y:0.5),
+        CGPoint(x:0.05, y:0.5), CGPoint(x:0.5, y:0.05)
+    ]),
+    DotPicture(name: "Lightning", points: [
+        CGPoint(x:0.6, y:0.05), CGPoint(x:0.3, y:0.5), CGPoint(x:0.55, y:0.5),
+        CGPoint(x:0.4, y:0.95), CGPoint(x:0.7, y:0.4), CGPoint(x:0.45, y:0.4),
+        CGPoint(x:0.6, y:0.05)
+    ]),
+    DotPicture(name: "Tree", points: [
+        CGPoint(x:0.5, y:0.05), CGPoint(x:0.15, y:0.5), CGPoint(x:0.35, y:0.5),
+        CGPoint(x:0.2, y:0.75), CGPoint(x:0.4, y:0.75), CGPoint(x:0.35, y:0.95),
+        CGPoint(x:0.65, y:0.95), CGPoint(x:0.6, y:0.75), CGPoint(x:0.8, y:0.75),
+        CGPoint(x:0.65, y:0.5), CGPoint(x:0.85, y:0.5), CGPoint(x:0.5, y:0.05)
+    ]),
+    DotPicture(name: "Moon", points: [
+        CGPoint(x:0.7, y:0.1), CGPoint(x:0.4, y:0.15), CGPoint(x:0.2, y:0.3),
+        CGPoint(x:0.1, y:0.5), CGPoint(x:0.2, y:0.7), CGPoint(x:0.4, y:0.85),
+        CGPoint(x:0.7, y:0.9), CGPoint(x:0.65, y:0.75), CGPoint(x:0.55, y:0.6),
+        CGPoint(x:0.5, y:0.5), CGPoint(x:0.55, y:0.4), CGPoint(x:0.65, y:0.25),
+        CGPoint(x:0.7, y:0.1)
+    ]),
+]
+
+// MARK: - Dot Identifier
+// In alpha mode labels alternate: 1, A, 2, B, 3, C…
+
+private func dotLabel(index: Int, alphaMode: Bool) -> String {
+    if !alphaMode { return "\(index + 1)" }
+    // index 0→"1", 1→"A", 2→"2", 3→"B" …
+    let pair = index / 2
+    if index % 2 == 0 {
+        return "\(pair + 1)"
+    } else {
+        let letter = UnicodeScalar(Int(("A" as UnicodeScalar).value) + pair)!
+        return String(letter)
+    }
+}
 
 // MARK: - ViewModel
 
 @MainActor
 class NumberTrailViewModel: ObservableObject {
-    enum GameState { case idle, playing, gameOver }
+    enum GameState { case idle, playing, revealing, gameOver }
 
-    struct Circle: Identifiable {
-        let id: Int      // also the number label
+    struct Dot: Identifiable {
+        let id: Int            // tap order (0-based)
         var position: CGPoint
         var tapped: Bool = false
-        var shaking: Bool = false
+        var bouncing: Bool = false
+        let label: String
     }
 
     @Published var gameState: GameState = .idle
-    @Published var circles: [Circle] = []
-    @Published var nextTarget: Int = 1
+    @Published var dots: [Dot] = []
+    @Published var nextTarget: Int = 0    // 0-based index of next dot to tap
     @Published var elapsed: Double = 0
     @Published var roundTimes: [Double] = []
     @Published var currentRound: Int = 0
-    @Published var shakeTargetID: Int? = nil
-    @Published var showNewBest = false
-    @Published var unlockedAchievement: Achievement? = nil
-    @Published var leveledUpTo: Int? = nil
+    @Published var trailPoints: [CGPoint] = []
+    @Published var currentPicture: DotPicture = dotPictures[0]
+    @Published var showPictureName: Bool = false
     @Published var finalAvg: Double = 0
     @Published var finalBrainScore: Int = 0
+    @Published var alphaMode: Bool = false
+
+    // Bounce trigger per dot (map id → Bool toggle)
+    @Published var bounceTriggers: [Int: Bool] = [:]
 
     let totalRounds = 3
     var onGameOver: ((Double) -> Void)?
 
     private var difficulty: Difficulty = .medium
     private var timerTask: Task<Void, Never>?
-    private var arenaSize: CGSize = CGSize(width: 350, height: 600)
+    private var arenaSize: CGSize = CGSize(width: 350, height: 550)
+    private var roundIndex: Int = 0   // for picture selection
+    private var eloCircleCount: Int = 12
+    private var eloCircleSize: CGFloat = 36
 
-    var circleCount: Int {
-        switch difficulty { case .easy: return 9; case .medium: return 12; case .hard: return 15 }
-    }
+    var circleCount: Int { eloCircleCount }
+    var circleSize: CGFloat { eloCircleSize }
 
-    var circleSize: CGFloat {
-        switch difficulty { case .easy: return 64; case .medium: return 52; case .hard: return 44 }
-    }
+    func setArenaSize(_ size: CGSize) { arenaSize = size }
 
-    func setArenaSize(_ size: CGSize) {
-        arenaSize = size
-    }
+    // MARK: - Start
 
-    func startGame(difficulty: Difficulty) {
+    func startGame(difficulty: Difficulty, trailElo: Double) {
         self.difficulty = difficulty
-        currentRound = 0
-        roundTimes = []
-        gameState = .playing
+        let params = EloSystem.trailParams(trailElo)
+        eloCircleCount = params.circleCount
+        eloCircleSize  = params.circleSize
+        alphaMode      = params.useAlphaMode
+        currentRound   = 0
+        roundIndex     = 0
+        roundTimes     = []
+        trailPoints    = []
+        showPictureName = false
+        gameState      = .playing
         startRound()
     }
 
+    // MARK: - Round
+
     private func startRound() {
         timerTask?.cancel()
-        elapsed = 0
-        nextTarget = 1
-        circles = placedCircles()
+        elapsed     = 0
+        nextTarget  = 0
+        trailPoints = []
+        showPictureName = false
+        bounceTriggers = [:]
+
+        // Pick picture for this round
+        currentPicture = dotPictures[roundIndex % dotPictures.count]
+        roundIndex += 1
+
+        dots = makeDots()
         startStopwatch()
     }
 
@@ -76,90 +165,159 @@ class NumberTrailViewModel: ObservableObject {
         }
     }
 
-    func tap(circleID: Int) {
+    // MARK: - Tap
+
+    func tap(dotID: Int) {
         guard gameState == .playing else { return }
-        if circleID == nextTarget {
+        if dotID == nextTarget {
             // Correct tap
-            if let idx = circles.firstIndex(where: { $0.id == circleID }) {
-                circles[idx].tapped = true
+            if let idx = dots.firstIndex(where: { $0.id == dotID }) {
+                dots[idx].tapped = true
+                trailPoints.append(dots[idx].position)
             }
+            // Trigger bounce
+            bounceTriggers[dotID] = !(bounceTriggers[dotID] ?? false)
+            SoundEngine.shared.playCorrect()
             Haptics.light()
             nextTarget += 1
-            if nextTarget > circleCount {
-                // Round complete
+
+            if nextTarget >= circleCount {
+                // Round complete — reveal phase
                 timerTask?.cancel()
                 roundTimes.append(elapsed)
-                currentRound += 1
-                if currentRound >= totalRounds {
-                    endGame()
-                } else {
-                    // Brief pause then next round
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(800))
-                        guard self.gameState == .playing else { return }
-                        self.startRound()
+                gameState = .revealing
+                SoundEngine.shared.playSuccess()
+                Task {
+                    try? await Task.sleep(for: .milliseconds(600))
+                    showPictureName = true
+                    try? await Task.sleep(for: .seconds(1.8))
+                    currentRound += 1
+                    if currentRound >= totalRounds {
+                        endGame()
+                    } else {
+                        gameState = .playing
+                        startRound()
                     }
                 }
             }
         } else {
-            // Wrong tap — shake
+            // Wrong tap
+            SoundEngine.shared.playWrong()
             Haptics.error()
-            shakeTargetID = circleID
-            Task {
-                try? await Task.sleep(for: .milliseconds(400))
-                self.shakeTargetID = nil
-            }
         }
     }
+
+    // MARK: - End
 
     private func endGame() {
         timerTask?.cancel()
         let avg = roundTimes.isEmpty ? 0.0 : roundTimes.reduce(0, +) / Double(roundTimes.count)
         finalAvg = avg
-        finalBrainScore = max(70, min(145, Int(110.0 - (avg - 20.0) * 2.5)))
+        finalBrainScore = max(0, Int(110 - (avg - 20) * 2.5))
         onGameOver?(avg)
         gameState = .gameOver
     }
 
-    // MARK: - Circle placement (rejection sampling, min 80pt apart)
+    // MARK: - Dot Placement from picture
 
-    private func placedCircles() -> [Circle] {
-        let r = circleSize / 2
-        let margin = r + 8
-        let minDist: CGFloat = 80
+    private func makeDots() -> [Dot] {
+        let count = circleCount
+        let pic   = currentPicture
+        let picPoints = pic.points
+
+        // Use picture points (scaled) for the first N dots (capped to count)
+        let usedCount = min(count, picPoints.count)
+        let margin    = circleSize / 2 + 6
+        let w = arenaSize.width
+        let h = arenaSize.height
+
         var positions: [CGPoint] = []
-        var circles: [Circle] = []
-        let maxAttempts = 500
 
-        for num in 1...circleCount {
-            var placed = false
-            for _ in 0..<maxAttempts {
-                let x = CGFloat.random(in: margin...(arenaSize.width - margin))
-                let y = CGFloat.random(in: margin...(arenaSize.height - margin))
-                let pt = CGPoint(x: x, y: y)
-                let tooClose = positions.contains { dist($0, pt) < minDist }
-                if !tooClose {
-                    positions.append(pt)
-                    circles.append(Circle(id: num, position: pt))
-                    placed = true
-                    break
+        // Scale picture points to arena
+        for i in 0..<usedCount {
+            let norm = picPoints[i]
+            let x = margin + norm.x * (w - margin * 2)
+            let y = margin + norm.y * (h - margin * 2)
+            positions.append(CGPoint(x: x, y: y))
+        }
+
+        // If we need more than the picture provides, place randomly
+        if count > usedCount {
+            let minDist: CGFloat = max(circleSize * 1.5, 60)
+            for _ in usedCount..<count {
+                var placed = false
+                for _ in 0..<300 {
+                    let x = CGFloat.random(in: margin...(w - margin))
+                    let y = CGFloat.random(in: margin...(h - margin))
+                    let pt = CGPoint(x: x, y: y)
+                    if !positions.contains(where: { dist($0, pt) < minDist }) {
+                        positions.append(pt)
+                        placed = true
+                        break
+                    }
+                }
+                if !placed {
+                    positions.append(CGPoint(
+                        x: CGFloat.random(in: margin...(w - margin)),
+                        y: CGFloat.random(in: margin...(h - margin))
+                    ))
                 }
             }
-            if !placed {
-                // Fallback: just place it (rare)
-                let x = CGFloat.random(in: margin...(arenaSize.width - margin))
-                let y = CGFloat.random(in: margin...(arenaSize.height - margin))
-                positions.append(CGPoint(x: x, y: y))
-                circles.append(Circle(id: num, position: CGPoint(x: x, y: y)))
-            }
         }
-        return circles
+
+        return positions.indices.map { i in
+            Dot(id: i,
+                position: positions[i],
+                label: dotLabel(index: i, alphaMode: alphaMode))
+        }
     }
 
     private func dist(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
-        let dx = a.x - b.x
-        let dy = a.y - b.y
+        let dx = a.x - b.x; let dy = a.y - b.y
         return (dx * dx + dy * dy).squareRoot()
+    }
+}
+
+// MARK: - Trail Canvas
+
+private struct TrailCanvas: View {
+    let points: [CGPoint]
+
+    var body: some View {
+        ZStack {
+            // Outer glow layer
+            Canvas { ctx, _ in
+                drawPath(ctx: ctx, opacity: 0.2, lineWidth: 14)
+            }
+            // Mid glow layer
+            Canvas { ctx, _ in
+                drawPath(ctx: ctx, opacity: 0.4, lineWidth: 7)
+            }
+            // Core line
+            Canvas { ctx, _ in
+                drawPath(ctx: ctx, opacity: 1.0, lineWidth: 3)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func drawPath(ctx: GraphicsContext, opacity: Double, lineWidth: CGFloat) {
+        guard points.count >= 2 else { return }
+        var path = Path()
+        path.move(to: points[0])
+        for pt in points.dropFirst() { path.addLine(to: pt) }
+        ctx.stroke(
+            path,
+            with: .linearGradient(
+                Gradient(colors: [
+                    Color.blue.opacity(opacity),
+                    Color.purple.opacity(opacity)
+                ]),
+                startPoint: points.first ?? .zero,
+                endPoint: points.last ?? .zero
+            ),
+            style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+        )
     }
 }
 
@@ -171,76 +329,29 @@ struct NumberTrailGameView: View {
     @Query private var statsQuery: [PlayerStats]
     @AppStorage("numberTrailDifficulty") private var difficulty: Difficulty = .medium
 
-    private let gameColor = Color(red: 0.75, green: 0.5, blue: 0.1)
-
     private var stats: PlayerStats {
         if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        let s = PlayerStats(); modelContext.insert(s); return s
     }
 
     var body: some View {
         ZStack {
             mainContent
-
-            if vm.showNewBest {
-                NewBestBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(10)
-            }
-            if let level = vm.leveledUpTo {
-                LevelUpBanner(level: level)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(11)
-            }
-            if let achievement = vm.unlockedAchievement {
-                AchievementUnlockedBanner(achievement: achievement)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(12)
-            }
         }
-        .animation(.spring(response: 0.4), value: vm.showNewBest)
-        .animation(.spring(response: 0.4), value: vm.leveledUpTo)
-        .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Number Trail")
+        .navigationTitle("Dot Connect")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             vm.onGameOver = { avgSeconds in
-                let isNewBest: Bool
-                if stats.numberTrailBestTime == 0 {
-                    isNewBest = true
-                } else {
-                    isNewBest = avgSeconds < stats.numberTrailBestTime
-                }
+                let brainScore = max(0, Int(110 - (avgSeconds - 20) * 2.5))
                 let session = GameSession(
                     gameType: "numbertrail",
                     rawScore: Int(avgSeconds),
-                    brainScore: max(70, min(145, Int(110.0 - (avgSeconds - 20.0) * 2.5))),
+                    brainScore: brainScore,
                     difficulty: difficulty.rawValue
                 )
                 modelContext.insert(session)
-                let leveledUp = stats.recordNumberTrailGame(avgSeconds: avgSeconds)
-                let newAchievements = checkAndUnlock(stats: stats)
-                if isNewBest {
-                    vm.showNewBest = true
-                    Haptics.success()
-                    Task { try? await Task.sleep(for: .seconds(2)); vm.showNewBest = false }
-                }
-                if leveledUp {
-                    vm.leveledUpTo = stats.playerLevel
-                    Task { try? await Task.sleep(for: .seconds(2.5)); vm.leveledUpTo = nil }
-                }
-                if let first = newAchievements.first {
-                    let delay = (isNewBest || leveledUp) ? 2.8 : 0.3
-                    Task {
-                        try? await Task.sleep(for: .seconds(delay))
-                        vm.unlockedAchievement = first
-                        Haptics.success()
-                        try? await Task.sleep(for: .seconds(3))
-                        vm.unlockedAchievement = nil
-                    }
-                }
+                stats.recordNumberTrailGame(avgSeconds: avgSeconds)
+                stats.numberTrailEloRating = EloSystem.updated(stats.numberTrailEloRating, correct: avgSeconds < 30)
             }
         }
     }
@@ -248,9 +359,9 @@ struct NumberTrailGameView: View {
     @ViewBuilder
     var mainContent: some View {
         switch vm.gameState {
-        case .idle:     idleView
-        case .playing:  playView
-        case .gameOver: gameOverView
+        case .idle:                idleView
+        case .playing, .revealing: playView
+        case .gameOver:            gameOverView
         }
     }
 
@@ -260,18 +371,25 @@ struct NumberTrailGameView: View {
         VStack(spacing: 0) {
             Spacer()
             VStack(spacing: 16) {
-                Image(systemName: "arrow.triangle.branch")
+                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
                     .font(.system(size: 72))
-                    .foregroundStyle(gameColor)
-                Text("Number Trail")
+                    .foregroundStyle(.cyan)
+                Text("Dot Connect")
                     .font(.largeTitle.bold())
-                Text("Tap the numbered circles in order,\n1 → 2 → 3 → … as fast as you can.")
+                Text("Tap the dots in order to reveal\na hidden picture. 3 rounds.")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
+
+                if vm.alphaMode || EloSystem.trailParams(stats.numberTrailEloRating).useAlphaMode {
+                    Label("Alpha Trail: 1→A→2→B…", systemImage: "textformat.alt")
+                        .font(.caption.bold())
+                        .foregroundStyle(.purple)
+                }
+
                 if stats.numberTrailBestTime > 0 {
-                    Label(String(format: "Best: %.1f s avg", stats.numberTrailBestTime), systemImage: "trophy.fill")
+                    Label(String(format: "Best: %.1fs avg", stats.numberTrailBestTime), systemImage: "trophy.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
                 }
@@ -282,13 +400,15 @@ struct NumberTrailGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button {
+                vm.startGame(difficulty: difficulty, trailElo: stats.numberTrailEloRating)
+            } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(gameColor, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color.cyan, in: RoundedRectangle(cornerRadius: 16))
             }
             .padding(.horizontal)
             .padding(.bottom, 20)
@@ -301,15 +421,19 @@ struct NumberTrailGameView: View {
         VStack(spacing: 0) {
             // Stats bar
             HStack {
-                StatBadge(label: "Round", value: "\(vm.currentRound + 1)/\(vm.totalRounds)", color: gameColor)
+                StatBadge(label: "Round", value: "\(vm.currentRound + 1)/\(vm.totalRounds)", color: .cyan)
                 Spacer()
-                StatBadge(label: "Next", value: "\(vm.nextTarget)", color: .primary)
+                if vm.alphaMode {
+                    Text("1→A→2→B")
+                        .font(.caption.bold())
+                        .foregroundStyle(.purple)
+                }
                 Spacer()
                 StatBadge(label: "Time", value: String(format: "%.1fs", vm.elapsed), color: .secondary)
             }
             .padding(.horizontal)
             .padding(.top, 8)
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
 
             // Arena
             GeometryReader { geo in
@@ -317,9 +441,29 @@ struct NumberTrailGameView: View {
                     Color(.secondarySystemBackground)
                         .ignoresSafeArea(edges: .bottom)
 
-                    ForEach(vm.circles) { circle in
-                        circleView(circle)
-                            .position(circle.position)
+                    // Trail lines
+                    TrailCanvas(points: vm.trailPoints)
+
+                    // Dots
+                    ForEach(vm.dots) { dot in
+                        dotCircleView(dot, geo: geo)
+                            .position(dot.position)
+                    }
+
+                    // Reveal name
+                    if vm.showPictureName {
+                        Text("You drew a \(vm.currentPicture.name)!")
+                            .font(.title2.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(
+                                LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing),
+                                in: RoundedRectangle(cornerRadius: 14)
+                            )
+                            .shadow(color: .blue.opacity(0.5), radius: 12)
+                            .transition(.scale.combined(with: .opacity))
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.82)
                     }
                 }
                 .onAppear {
@@ -328,114 +472,74 @@ struct NumberTrailGameView: View {
                 .contentShape(Rectangle())
             }
         }
+        .animation(.spring(response: 0.4), value: vm.showPictureName)
     }
 
-    func circleView(_ circle: NumberTrailViewModel.Circle) -> some View {
-        let isTapped = circle.tapped
-        let isNext = circle.id == vm.nextTarget
-        let isShaking = vm.shakeTargetID == circle.id
+    @ViewBuilder
+    func dotCircleView(_ dot: NumberTrailViewModel.Dot, geo: GeometryProxy) -> some View {
+        let isTapped = dot.tapped
+        let isNext   = dot.id == vm.nextTarget
+        let bounce   = vm.bounceTriggers[dot.id] ?? false
+        let size     = vm.circleSize
 
-        return ZStack {
-            SwiftUI.Circle()
-                .fill(isTapped ? Color.green : (isNext ? gameColor : Color(.secondarySystemBackground)))
-                .frame(width: vm.circleSize, height: vm.circleSize)
+        ZStack {
+            Circle()
+                .fill(isTapped ? Color.cyan : (isNext ? Color.blue : Color(.secondarySystemBackground)))
+                .frame(width: size, height: size)
                 .overlay(
-                    SwiftUI.Circle()
-                        .stroke(isTapped ? Color.green : gameColor, lineWidth: 2)
+                    Circle().stroke(isTapped ? Color.cyan : Color.blue, lineWidth: 2)
+                )
+                .shadow(
+                    color: isTapped ? Color.cyan.opacity(0.5) : (isNext ? Color.blue.opacity(0.4) : .clear),
+                    radius: isTapped ? 8 : 4
                 )
 
-            Text("\(circle.id)")
-                .font(.system(size: vm.circleSize * 0.35, weight: .bold, design: .rounded))
-                .foregroundStyle(isTapped ? .white : (isNext ? .white : gameColor))
+            Text(dot.label)
+                .font(.system(size: size * 0.33, weight: .bold, design: .rounded))
+                .foregroundStyle(isTapped ? .white : (isNext ? .white : Color.blue))
+                .opacity(isTapped ? 0.0 : 1.0)   // fade label after tap
         }
-        .modifier(ShakeEffect(animating: isShaking))
+        .juiceBounce(trigger: bounce)
+        .animation(.easeInOut(duration: 0.25), value: isTapped)
         .onTapGesture {
-            if !isTapped { vm.tap(circleID: circle.id) }
+            if !isTapped { vm.tap(dotID: dot.id) }
         }
-        .animation(.easeInOut(duration: 0.2), value: isTapped)
     }
 
     // MARK: - Game Over
 
     var gameOverView: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            VStack(spacing: 24) {
-                Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 56))
-                    .foregroundStyle(gameColor)
+        let avg = vm.finalAvg
+        let brainScore = max(0, Int(110 - (avg - 20) * 2.5))
+        let primaryScore = brainScore
 
-                Text("Done!")
-                    .font(.largeTitle.bold())
-
-                VStack(spacing: 12) {
-                    // Round times
-                    ForEach(vm.roundTimes.indices, id: \.self) { i in
-                        resultRow("Round \(i + 1)", value: String(format: "%.2f s", vm.roundTimes[i]), color: gameColor)
-                    }
-                    Divider()
-                    resultRow("Avg Time",     value: String(format: "%.2f s", vm.finalAvg),    color: .primary)
-                    Divider()
-                    resultRow("Brain Score",  value: "\(vm.finalBrainScore)",                  color: .indigo)
-                    if stats.numberTrailBestTime > 0 {
-                        resultRow("All-Time Best", value: String(format: "%.2f s", stats.numberTrailBestTime), color: .secondary)
-                    }
-                    Divider()
-                    resultRow("vs. Average",
-                              value: PlayerStats.percentileLabel(for: vm.finalBrainScore),
-                              color: scoreColor(vm.finalBrainScore))
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal)
-            }
-            Spacer()
-
-            DifficultyPicker(difficulty: $difficulty)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-
-            ShareResultButton(
-                gameName: "Number Trail",
-                gameIcon: "arrow.triangle.branch",
-                gameColor: gameColor,
-                primaryValue: String(format: "%.1f s", vm.finalAvg),
-                primaryLabel: "avg",
-                secondaryLine: "Brain Score: \(vm.finalBrainScore)"
+        let result = GameResult(
+            gameTitle: "Dot Connect",
+            primaryScore: primaryScore,
+            primaryLabel: "score",
+            brainScore: brainScore,
+            previousBrainScore: stats.numberTrailBrainScore,
+            isNewBest: stats.numberTrailBestTime > 0 && avg < stats.numberTrailBestTime,
+            multiplierBreakdown: nil,
+            percentileText: PlayerStats.percentileLabel(for: brainScore),
+            accentColor: .cyan,
+            share: GameResult.ShareConfig(
+                gameName: "Dot Connect",
+                icon: "point.topleft.down.to.point.bottomright.curvepath.fill",
+                color: .cyan,
+                primaryValue: String(format: "%.1f", avg),
+                primaryLabel: "avg sec",
+                secondaryLine: "Brain Score \(brainScore)"
             )
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+        )
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
-                Text("Play Again")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(gameColor, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 20)
+        return GameOverView(result: result) {
+            vm.startGame(difficulty: difficulty, trailElo: stats.numberTrailEloRating)
         }
-    }
-
-    func resultRow(_ label: String, value: String, color: Color) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).font(.title3.bold()).foregroundStyle(color)
-        }
-    }
-
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
     }
 }
 
-// MARK: - Shake Effect
+// MARK: - ShakeEffect (kept for compatibility)
 
 struct ShakeEffect: GeometryEffect {
     var animating: Bool
