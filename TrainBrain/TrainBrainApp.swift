@@ -8,6 +8,8 @@ struct TrainBrainApp: App {
     @AppStorage("notificationHour") private var notificationHour = 9
     @AppStorage("notificationMinute") private var notificationMinute = 0
 
+    @State private var showSplash = true
+
     init() {
         // Haptics default to ON — only off if user explicitly disabled
         UserDefaults.standard.register(defaults: ["hapticsEnabled": true])
@@ -15,15 +17,30 @@ struct TrainBrainApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if hasOnboarded {
-                    ContentView()
-                } else {
-                    OnboardingView { hasOnboarded = true }
+            ZStack {
+                Group {
+                    if hasOnboarded {
+                        ContentView()
+                    } else {
+                        OnboardingView { hasOnboarded = true }
+                    }
+                }
+                .opacity(showSplash ? 0 : 1)
+
+                if showSplash {
+                    SplashView(isShowing: $showSplash)
+                        .transition(.opacity)
+                        .zIndex(1)
                 }
             }
+            .animation(.easeInOut(duration: 0.4), value: showSplash)
             .task {
-                // Re-schedule notification on every launch (covers reinstall / permission grant)
+                // Minimum splash display time — model container loads fast but
+                // this prevents the jarring black-to-content flash
+                try? await Task.sleep(for: .milliseconds(1200))
+                showSplash = false
+
+                // Re-schedule notification on every launch
                 guard notificationsEnabled else { return }
                 let status = await NotificationManager.shared.authorizationStatus()
                 if status == .authorized {

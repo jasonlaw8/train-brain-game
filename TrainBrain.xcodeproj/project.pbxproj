@@ -40,6 +40,7 @@
 		AABB000000000000000252 /* SnapshotTransitionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000251 /* SnapshotTransitionView.swift */; };
 		AABB000000000000000262 /* BrainSnapshotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000261 /* BrainSnapshotView.swift */; };
 		AABB000000000000000272 /* SnapshotResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000271 /* SnapshotResultsView.swift */; };
+		AABB000000000000000282 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000281 /* SplashView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +78,7 @@
 		AABB000000000000000251 /* SnapshotTransitionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotTransitionView.swift; sourceTree = "<group>"; };
 		AABB000000000000000261 /* BrainSnapshotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSnapshotView.swift; sourceTree = "<group>"; };
 		AABB000000000000000271 /* SnapshotResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotResultsView.swift; sourceTree = "<group>"; };
+		AABB000000000000000281 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +136,7 @@
 				AABB000000000000000251 /* SnapshotTransitionView.swift */,
 				AABB000000000000000261 /* BrainSnapshotView.swift */,
 				AABB000000000000000271 /* SnapshotResultsView.swift */,
+				AABB000000000000000281 /* SplashView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -246,6 +249,7 @@
 				AABB000000000000000252 /* SnapshotTransitionView.swift in Sources */,
 				AABB000000000000000262 /* BrainSnapshotView.swift in Sources */,
 				AABB000000000000000272 /* SnapshotResultsView.swift in Sources */,
+				AABB000000000000000282 /* SplashView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
