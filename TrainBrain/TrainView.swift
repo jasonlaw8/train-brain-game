@@ -68,6 +68,18 @@ struct TrainView: View {
                                     brainScore: stats.spatialBrainScore > 0 ? stats.spatialBrainScore : nil
                                 )
                             }
+                            NavigationLink(destination: DigitSpanGameView()) {
+                                GameCard(
+                                    title: "Number Memory",
+                                    subtitle: "Memorize and reproduce digit sequences",
+                                    icon: "number.circle.fill",
+                                    color: .mint,
+                                    bestScore: stats.digitSpanBestLevel > 0
+                                        ? "Best level: \(stats.digitSpanBestLevel)" : nil,
+                                    playedToday: stats.dailyChallengeDigitSpanDone,
+                                    brainScore: stats.digitSpanBrainScore > 0 ? stats.digitSpanBrainScore : nil
+                                )
+                            }
                         }
 
                         // ATTENTION domain
@@ -88,6 +100,18 @@ struct TrainView: View {
                                         ? "Best: \(stats.flankerBestAccuracy)% accuracy" : nil,
                                     playedToday: stats.dailyChallengeFlankerDone,
                                     brainScore: stats.flankerBrainScore > 0 ? stats.flankerBrainScore : nil
+                                )
+                            }
+                            NavigationLink(destination: StopSignalGameView()) {
+                                GameCard(
+                                    title: "Brake Test",
+                                    subtitle: "Tap to go — but stop when the signal appears",
+                                    icon: "stop.circle.fill",
+                                    color: .red,
+                                    bestScore: stats.stopSignalBestAccuracy > 0
+                                        ? "Best: \(stats.stopSignalBestAccuracy)% accuracy" : nil,
+                                    playedToday: stats.dailyChallengeStopSignalDone,
+                                    brainScore: stats.stopSignalBrainScore > 0 ? stats.stopSignalBrainScore : nil
                                 )
                             }
                         }
@@ -122,6 +146,62 @@ struct TrainView: View {
                                         ? "Best: \(stats.visualBestScore)/8 rounds" : nil,
                                     playedToday: stats.dailyChallengeVisualDone,
                                     brainScore: stats.visualBrainScore > 0 ? stats.visualBrainScore : nil
+                                )
+                            }
+                            NavigationLink(destination: NumberTrailGameView()) {
+                                GameCard(
+                                    title: "Number Trail",
+                                    subtitle: "Tap numbers in order as fast as possible",
+                                    icon: "arrow.triangle.branch",
+                                    color: Color(red: 0.75, green: 0.5, blue: 0.1),
+                                    bestScore: stats.numberTrailBestTime > 0
+                                        ? String(format: "Best: %.1f s avg", stats.numberTrailBestTime) : nil,
+                                    playedToday: stats.dailyChallengeNumberTrailDone,
+                                    brainScore: stats.numberTrailBrainScore > 0 ? stats.numberTrailBrainScore : nil
+                                )
+                            }
+                        }
+
+                        // SPATIAL REASONING domain
+                        domainSection(
+                            title: "Spatial Reasoning",
+                            icon: "rotate.3d",
+                            color: .yellow,
+                            brainScore: stats.mentalRotationBrainScore,
+                            description: "Mentally manipulate and compare shapes in space"
+                        ) {
+                            NavigationLink(destination: MentalRotationGameView()) {
+                                GameCard(
+                                    title: "Shape Flip",
+                                    subtitle: "Same shape rotated or mirrored?",
+                                    icon: "rotate.3d",
+                                    color: .yellow,
+                                    bestScore: stats.mentalRotationBestScore > 0
+                                        ? "Best: \(stats.mentalRotationBestScore)/20 correct" : nil,
+                                    playedToday: stats.dailyChallengeMentalRotationDone,
+                                    brainScore: stats.mentalRotationBrainScore > 0 ? stats.mentalRotationBrainScore : nil
+                                )
+                            }
+                        }
+
+                        // LANGUAGE domain
+                        domainSection(
+                            title: "Language",
+                            icon: "character.book.closed.fill",
+                            color: Color(red: 0.15, green: 0.65, blue: 0.35),
+                            brainScore: stats.wordScrambleBrainScore,
+                            description: "Verbal processing speed and lexical retrieval"
+                        ) {
+                            NavigationLink(destination: WordScrambleGameView()) {
+                                GameCard(
+                                    title: "Word Scramble",
+                                    subtitle: "Tap letters to unscramble words fast",
+                                    icon: "character.book.closed.fill",
+                                    color: Color(red: 0.15, green: 0.65, blue: 0.35),
+                                    bestScore: stats.wordScrambleBestScore > 0
+                                        ? "Best: \(stats.wordScrambleBestScore) words" : nil,
+                                    playedToday: stats.dailyChallengeWordScrambleDone,
+                                    brainScore: stats.wordScrambleBrainScore > 0 ? stats.wordScrambleBrainScore : nil
                                 )
                             }
                         }

@@ -73,6 +73,45 @@ final class PlayerStats {
     var dailyChallengePatternDone: Bool = false
     var dailyChallengeSnapshotDone: Bool = false
 
+    // MARK: - New Games
+
+    // MARK: - Digit Span
+    var digitSpanBestLevel: Int = 0
+    var digitSpanBrainScore: Int = 0
+    var digitSpanPlayCount: Int = 0
+    var digitSpanLastPlayedDate: Date? = nil
+
+    // MARK: - Stop Signal
+    var stopSignalBestAccuracy: Int = 0
+    var stopSignalBrainScore: Int = 0
+    var stopSignalPlayCount: Int = 0
+    var stopSignalLastPlayedDate: Date? = nil
+
+    // MARK: - Mental Rotation
+    var mentalRotationBestScore: Int = 0
+    var mentalRotationBrainScore: Int = 0
+    var mentalRotationPlayCount: Int = 0
+    var mentalRotationLastPlayedDate: Date? = nil
+
+    // MARK: - Word Scramble
+    var wordScrambleBestScore: Int = 0
+    var wordScrambleBrainScore: Int = 0
+    var wordScramblePlayCount: Int = 0
+    var wordScrambleLastPlayedDate: Date? = nil
+
+    // MARK: - Number Trail
+    var numberTrailBestTime: Double = 0   // 0 = never played; lower is better
+    var numberTrailBrainScore: Int = 0
+    var numberTrailPlayCount: Int = 0
+    var numberTrailLastPlayedDate: Date? = nil
+
+    // MARK: - Daily challenges (new games)
+    var dailyChallengeDigitSpanDone: Bool = false
+    var dailyChallengeStopSignalDone: Bool = false
+    var dailyChallengeMentalRotationDone: Bool = false
+    var dailyChallengeWordScrambleDone: Bool = false
+    var dailyChallengeNumberTrailDone: Bool = false
+
     // MARK: - Brain Snapshot
     var ageRange: String = ""               // "18-24" | "25-34" | "35-44" | "45-54" | "55+"
     var snapshotSessionCount: Int = 0
@@ -107,6 +146,11 @@ final class PlayerStats {
         spatialBestLevel = 0; spatialPlayCount = 0; spatialBrainScore = 0; spatialLastPlayedDate = nil
         visualBestScore = 0; visualPlayCount = 0; visualBrainScore = 0; visualLastPlayedDate = nil
         patternBestScore = 0; patternPlayCount = 0; patternBrainScore = 0; patternLastPlayedDate = nil
+        digitSpanBestLevel = 0; digitSpanBrainScore = 0; digitSpanPlayCount = 0; digitSpanLastPlayedDate = nil
+        stopSignalBestAccuracy = 0; stopSignalBrainScore = 0; stopSignalPlayCount = 0; stopSignalLastPlayedDate = nil
+        mentalRotationBestScore = 0; mentalRotationBrainScore = 0; mentalRotationPlayCount = 0; mentalRotationLastPlayedDate = nil
+        wordScrambleBestScore = 0; wordScrambleBrainScore = 0; wordScramblePlayCount = 0; wordScrambleLastPlayedDate = nil
+        numberTrailBestTime = 0; numberTrailBrainScore = 0; numberTrailPlayCount = 0; numberTrailLastPlayedDate = nil
         totalXP = 0; lastPlayedDate = nil; dailyStreakCount = 0; lastStreakDate = nil
         unlockedAchievementIDs = ""
         dailyChallengeDate = nil
@@ -114,6 +158,9 @@ final class PlayerStats {
         dailyChallengeSpeedDone = false; dailyChallengeFlankerDone = false
         dailyChallengeSpatialDone = false; dailyChallengeVisualDone = false
         dailyChallengePatternDone = false; dailyChallengeSnapshotDone = false
+        dailyChallengeDigitSpanDone = false; dailyChallengeStopSignalDone = false
+        dailyChallengeMentalRotationDone = false; dailyChallengeWordScrambleDone = false
+        dailyChallengeNumberTrailDone = false
         milestoneOverall100 = false; milestoneOverall110 = false
         milestoneOverall120 = false; milestoneOverall130 = false
         milestoneLevel25 = false; milestoneLevel50 = false
@@ -126,7 +173,7 @@ final class PlayerStats {
 
     var playerLevel: Int { totalXP / 100 + 1 }   // no cap — infinite progression
     var xpProgressInCurrentLevel: Int { totalXP % 100 }
-    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount + flankerPlayCount + spatialPlayCount + visualPlayCount + patternPlayCount }
+    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount + flankerPlayCount + spatialPlayCount + visualPlayCount + patternPlayCount + digitSpanPlayCount + stopSignalPlayCount + mentalRotationPlayCount + wordScramblePlayCount + numberTrailPlayCount }
 
     // MARK: - Daily tracking (per-game "played today" for game card checkmarks)
 
@@ -216,6 +263,31 @@ final class PlayerStats {
     static func patternBrainScore(correct: Int) -> Int {
         // 7/10 correct ≈ 100 (average). Clamped 70–145.
         max(70, min(145, 35 + correct * 10))
+    }
+
+    static func digitSpanBrainScore(level: Int) -> Int {
+        // level 5 ≈ 97, level 7 ≈ 115. Clamped 70–145.
+        max(70, min(145, 52 + level * 9))
+    }
+
+    static func stopSignalBrainScore(accuracy: Int) -> Int {
+        // 82% accuracy ≈ 100. Clamped 70–145.
+        max(70, min(145, accuracy + 18))
+    }
+
+    static func mentalRotationBrainScore(correct: Int) -> Int {
+        // 12/20 ≈ 100. Clamped 70–145.
+        max(70, min(145, 40 + correct * 5))
+    }
+
+    static func wordScrambleBrainScore(score: Int) -> Int {
+        // 4 words ≈ 100. Clamped 70–145.
+        max(70, min(145, 40 + score * 15))
+    }
+
+    static func numberTrailBrainScore(avgSeconds: Double) -> Int {
+        // 20s avg ≈ 110, 32s avg ≈ 80. Clamped 70–145.
+        max(70, min(145, Int(110.0 - (avgSeconds - 20.0) * 2.5)))
     }
 
     // MARK: - Percentile label
@@ -318,6 +390,59 @@ final class PlayerStats {
         return addXP(correct * 8)
     }
 
+    @discardableResult
+    func recordDigitSpanGame(level: Int) -> Bool {
+        if level > digitSpanBestLevel { digitSpanBestLevel = level }
+        digitSpanPlayCount += 1
+        digitSpanBrainScore = Self.digitSpanBrainScore(level: level)
+        digitSpanLastPlayedDate = Date()
+        markDailyChallenge("digitspan")
+        return addXP(level * 12)
+    }
+
+    @discardableResult
+    func recordStopSignalGame(accuracy: Int) -> Bool {
+        if accuracy > stopSignalBestAccuracy { stopSignalBestAccuracy = accuracy }
+        stopSignalPlayCount += 1
+        stopSignalBrainScore = Self.stopSignalBrainScore(accuracy: accuracy)
+        stopSignalLastPlayedDate = Date()
+        markDailyChallenge("stopsignal")
+        return addXP(accuracy / 5)
+    }
+
+    @discardableResult
+    func recordMentalRotationGame(correct: Int) -> Bool {
+        if correct > mentalRotationBestScore { mentalRotationBestScore = correct }
+        mentalRotationPlayCount += 1
+        mentalRotationBrainScore = Self.mentalRotationBrainScore(correct: correct)
+        mentalRotationLastPlayedDate = Date()
+        markDailyChallenge("mentalrotation")
+        return addXP(correct * 6)
+    }
+
+    @discardableResult
+    func recordWordScrambleGame(score: Int) -> Bool {
+        if score > wordScrambleBestScore { wordScrambleBestScore = score }
+        wordScramblePlayCount += 1
+        wordScrambleBrainScore = Self.wordScrambleBrainScore(score: score)
+        wordScrambleLastPlayedDate = Date()
+        markDailyChallenge("wordscramble")
+        return addXP(score * 15)
+    }
+
+    @discardableResult
+    func recordNumberTrailGame(avgSeconds: Double) -> Bool {
+        if numberTrailBestTime == 0 || avgSeconds < numberTrailBestTime {
+            numberTrailBestTime = avgSeconds
+        }
+        numberTrailPlayCount += 1
+        numberTrailBrainScore = Self.numberTrailBrainScore(avgSeconds: avgSeconds)
+        numberTrailLastPlayedDate = Date()
+        markDailyChallenge("numbertrail")
+        let xp = max(5, Int(60.0 / max(1.0, avgSeconds)) * 10)
+        return addXP(xp)
+    }
+
     /// Records a completed Brain Snapshot session. Returns true if player leveled up.
     /// Also marks all three core daily challenges done (spec §9: snapshot counts for all domains).
     @discardableResult
@@ -375,14 +500,19 @@ final class PlayerStats {
     private func markDailyChallenge(_ type: String) {
         resetDailyChallengesIfNeeded()
         switch type {
-        case "memory":   dailyChallengeMemoryDone   = true
-        case "reflex":   dailyChallengeReflexDone   = true
-        case "speed":    dailyChallengeSpeedDone    = true
-        case "flanker":  dailyChallengeFlankerDone  = true
-        case "spatial":  dailyChallengeSpatialDone  = true
-        case "visual":   dailyChallengeVisualDone   = true
-        case "pattern":  dailyChallengePatternDone  = true
-        case "snapshot": dailyChallengeSnapshotDone = true
+        case "memory":        dailyChallengeMemoryDone        = true
+        case "reflex":        dailyChallengeReflexDone        = true
+        case "speed":         dailyChallengeSpeedDone         = true
+        case "flanker":       dailyChallengeFlankerDone       = true
+        case "spatial":       dailyChallengeSpatialDone       = true
+        case "visual":        dailyChallengeVisualDone        = true
+        case "pattern":       dailyChallengePatternDone       = true
+        case "snapshot":      dailyChallengeSnapshotDone      = true
+        case "digitspan":     dailyChallengeDigitSpanDone     = true
+        case "stopsignal":    dailyChallengeStopSignalDone    = true
+        case "mentalrotation": dailyChallengeMentalRotationDone = true
+        case "wordscramble":  dailyChallengeWordScrambleDone  = true
+        case "numbertrail":   dailyChallengeNumberTrailDone   = true
         default: break
         }
     }
@@ -392,14 +522,19 @@ final class PlayerStats {
         let today = calendar.startOfDay(for: Date())
         if let last = dailyChallengeDate {
             if calendar.startOfDay(for: last) < today {
-                dailyChallengeMemoryDone   = false
-                dailyChallengeReflexDone   = false
-                dailyChallengeSpeedDone    = false
-                dailyChallengeFlankerDone  = false
-                dailyChallengeSpatialDone  = false
-                dailyChallengeVisualDone   = false
-                dailyChallengePatternDone  = false
-                dailyChallengeSnapshotDone = false
+                dailyChallengeMemoryDone        = false
+                dailyChallengeReflexDone        = false
+                dailyChallengeSpeedDone         = false
+                dailyChallengeFlankerDone       = false
+                dailyChallengeSpatialDone       = false
+                dailyChallengeVisualDone        = false
+                dailyChallengePatternDone       = false
+                dailyChallengeSnapshotDone      = false
+                dailyChallengeDigitSpanDone     = false
+                dailyChallengeStopSignalDone    = false
+                dailyChallengeMentalRotationDone = false
+                dailyChallengeWordScrambleDone  = false
+                dailyChallengeNumberTrailDone   = false
                 dailyChallengeDate = Date()
             }
         } else {

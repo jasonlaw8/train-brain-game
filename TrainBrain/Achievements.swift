@@ -271,6 +271,91 @@ let allAchievements: [Achievement] = [
         icon: "calendar.badge.clock",
         color: .teal
     ) { $0.snapshotSessionCount >= 10 },
+
+    // MARK: Digit Span
+    Achievement(
+        id: "digitspan_1",
+        name: "Memory Span",
+        description: "Reach level 6 in Number Memory",
+        icon: "number.circle.fill",
+        color: .mint
+    ) { $0.digitSpanBestLevel >= 6 },
+
+    Achievement(
+        id: "digitspan_pro",
+        name: "Mind Vault",
+        description: "Reach level 9 in Number Memory",
+        icon: "lock.open.fill",
+        color: .mint
+    ) { $0.digitSpanBestLevel >= 9 },
+
+    // MARK: Stop Signal
+    Achievement(
+        id: "stopsignal_1",
+        name: "Self Control",
+        description: "Hit 80% accuracy in Brake Test",
+        icon: "stop.circle.fill",
+        color: .red
+    ) { $0.stopSignalBestAccuracy >= 80 },
+
+    Achievement(
+        id: "stopsignal_pro",
+        name: "Iron Brake",
+        description: "Hit 95% accuracy in Brake Test",
+        icon: "hand.raised.fill",
+        color: .red
+    ) { $0.stopSignalBestAccuracy >= 95 },
+
+    // MARK: Mental Rotation
+    Achievement(
+        id: "rotation_1",
+        name: "Mind's Eye",
+        description: "Get 12 correct in Shape Flip",
+        icon: "rotate.3d",
+        color: .yellow
+    ) { $0.mentalRotationBestScore >= 12 },
+
+    Achievement(
+        id: "rotation_pro",
+        name: "Spatial Master",
+        description: "Get 18 correct in Shape Flip",
+        icon: "cube.fill",
+        color: .yellow
+    ) { $0.mentalRotationBestScore >= 18 },
+
+    // MARK: Word Scramble
+    Achievement(
+        id: "scramble_1",
+        name: "Word Wizard",
+        description: "Complete 4 words in Word Scramble",
+        icon: "character.book.closed.fill",
+        color: Color(red: 0.15, green: 0.65, blue: 0.35)
+    ) { $0.wordScrambleBestScore >= 4 },
+
+    Achievement(
+        id: "scramble_pro",
+        name: "Lexical Speed",
+        description: "Complete 8 words in Word Scramble",
+        icon: "text.book.closed.fill",
+        color: Color(red: 0.15, green: 0.65, blue: 0.35)
+    ) { $0.wordScrambleBestScore >= 8 },
+
+    // MARK: Number Trail
+    Achievement(
+        id: "trail_1",
+        name: "Pathfinder",
+        description: "Complete your first Number Trail",
+        icon: "arrow.triangle.branch",
+        color: Color(red: 0.75, green: 0.5, blue: 0.1)
+    ) { $0.numberTrailBestTime > 0 },
+
+    Achievement(
+        id: "trail_pro",
+        name: "Neural Highway",
+        description: "Finish Number Trail in under 15 s avg",
+        icon: "bolt.horizontal.fill",
+        color: Color(red: 0.75, green: 0.5, blue: 0.1)
+    ) { $0.numberTrailBestTime > 0 && $0.numberTrailBestTime <= 15.0 },
 ]
 
 // MARK: - Check & unlock
