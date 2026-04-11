@@ -147,11 +147,16 @@ struct SettingsView: View {
         }
     }
 
+    @AppStorage("hasOnboarded") private var hasOnboarded = false
+
     private func clearHistory() {
         // Reset all stats on the PlayerStats record
         stats.resetAllStats()
-        // Delete all GameSession history records
+        // Delete all session history records
         try? modelContext.delete(model: GameSession.self)
+        try? modelContext.delete(model: SnapshotSession.self)
+        // Reset onboarding so user sees the intro flow again
+        hasOnboarded = false
     }
 
     private func reschedule() {
