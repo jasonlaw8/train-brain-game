@@ -35,8 +35,8 @@ struct TrainView: View {
                         ) {
                             NavigationLink(destination: MemoryGameView()) {
                                 GameCard(
-                                    title: "Simon Says",
-                                    subtitle: "Repeat the tile sequence",
+                                    title: "Echo Grid",
+                                    subtitle: "Repeat the light sequence before it fades",
                                     icon: "square.grid.3x3.fill",
                                     color: .blue,
                                     bestScore: stats.memoryBestLevel > 0
@@ -48,7 +48,7 @@ struct TrainView: View {
                             NavigationLink(destination: ColorGameView()) {
                                 GameCard(
                                     title: "Stroop Challenge",
-                                    subtitle: "Name the ink color, not the word",
+                                    subtitle: "Name the ink color, ignore the word",
                                     icon: "paintpalette.fill",
                                     color: .purple,
                                     bestScore: stats.colorBestScore > 0
@@ -58,9 +58,9 @@ struct TrainView: View {
                             }
                             NavigationLink(destination: SpatialMemoryGameView()) {
                                 GameCard(
-                                    title: "Spatial Memory",
-                                    subtitle: "Memorize the grid pattern, then recreate it",
-                                    icon: "square.grid.2x2.fill",
+                                    title: "Star Map",
+                                    subtitle: "Memorize the constellation, then tap from memory",
+                                    icon: "star.fill",
                                     color: .cyan,
                                     bestScore: stats.spatialBestLevel > 0
                                         ? "Best level: \(stats.spatialBestLevel)" : nil,
@@ -70,12 +70,12 @@ struct TrainView: View {
                             }
                             NavigationLink(destination: DigitSpanGameView()) {
                                 GameCard(
-                                    title: "Number Memory",
-                                    subtitle: "Memorize and reproduce digit sequences",
-                                    icon: "number.circle.fill",
+                                    title: "Vault Cracker",
+                                    subtitle: "Hear the code, enter it to open the vault",
+                                    icon: "lock.fill",
                                     color: .mint,
                                     bestScore: stats.digitSpanBestLevel > 0
-                                        ? "Best level: \(stats.digitSpanBestLevel)" : nil,
+                                        ? "Best span: \(stats.digitSpanBestLevel) digits" : nil,
                                     playedToday: stats.dailyChallengeDigitSpanDone,
                                     brainScore: stats.digitSpanBrainScore > 0 ? stats.digitSpanBrainScore : nil
                                 )
@@ -92,9 +92,9 @@ struct TrainView: View {
                         ) {
                             NavigationLink(destination: FlankerGameView()) {
                                 GameCard(
-                                    title: "Flanker Task",
-                                    subtitle: "Identify the center arrow, ignore the rest",
-                                    icon: "arrow.left.and.right",
+                                    title: "Fish School",
+                                    subtitle: "Which way is the leader fish swimming?",
+                                    icon: "fish.fill",
                                     color: .teal,
                                     bestScore: stats.flankerBestAccuracy > 0
                                         ? "Best: \(stats.flankerBestAccuracy)% accuracy" : nil,
@@ -104,9 +104,9 @@ struct TrainView: View {
                             }
                             NavigationLink(destination: StopSignalGameView()) {
                                 GameCard(
-                                    title: "Brake Test",
-                                    subtitle: "Tap to go — but stop when the signal appears",
-                                    icon: "stop.circle.fill",
+                                    title: "Bug Catcher",
+                                    subtitle: "Catch bugs — but freeze when the red one appears",
+                                    icon: "ladybug.fill",
                                     color: .red,
                                     bestScore: stats.stopSignalBestAccuracy > 0
                                         ? "Best: \(stats.stopSignalBestAccuracy)% accuracy" : nil,
@@ -119,16 +119,16 @@ struct TrainView: View {
                         // PROCESSING SPEED domain
                         domainSection(
                             title: "Processing Speed",
-                            icon: "function",
+                            icon: "bolt.fill",
                             color: .green,
                             brainScore: stats.speedBrainScore,
                             description: "How quickly your brain solves problems under pressure"
                         ) {
                             NavigationLink(destination: MathBlitzGameView()) {
                                 GameCard(
-                                    title: "Math Blitz",
-                                    subtitle: "Solve as many problems as you can",
-                                    icon: "function",
+                                    title: "Number Rush",
+                                    subtitle: "Solve real-world math before the clock runs out",
+                                    icon: "number",
                                     color: .green,
                                     bestScore: stats.speedBestScore > 0
                                         ? "Best: \(stats.speedBestScore) correct" : nil,
@@ -138,8 +138,8 @@ struct TrainView: View {
                             }
                             NavigationLink(destination: VisualSearchGameView()) {
                                 GameCard(
-                                    title: "Visual Search",
-                                    subtitle: "Find the odd symbol before time runs out",
+                                    title: "Odd One Out",
+                                    subtitle: "Spot the symbol that doesn't belong",
                                     icon: "eye.fill",
                                     color: .indigo,
                                     bestScore: stats.visualBestScore > 0
@@ -150,10 +150,10 @@ struct TrainView: View {
                             }
                             NavigationLink(destination: NumberTrailGameView()) {
                                 GameCard(
-                                    title: "Number Trail",
-                                    subtitle: "Tap numbers in order as fast as possible",
-                                    icon: "arrow.triangle.branch",
-                                    color: Color(red: 0.75, green: 0.5, blue: 0.1),
+                                    title: "Dot Connect",
+                                    subtitle: "Connect the dots in order to reveal a picture",
+                                    icon: "point.3.connected.trianglepath.dotted",
+                                    color: .cyan,
                                     bestScore: stats.numberTrailBestTime > 0
                                         ? String(format: "Best: %.1f s avg", stats.numberTrailBestTime) : nil,
                                     playedToday: stats.dailyChallengeNumberTrailDone,
@@ -172,9 +172,9 @@ struct TrainView: View {
                         ) {
                             NavigationLink(destination: MentalRotationGameView()) {
                                 GameCard(
-                                    title: "Shape Flip",
-                                    subtitle: "Same shape rotated or mirrored?",
-                                    icon: "rotate.3d",
+                                    title: "Block Builder",
+                                    subtitle: "Does the rotated block match the target?",
+                                    icon: "cube.fill",
                                     color: .yellow,
                                     bestScore: stats.mentalRotationBestScore > 0
                                         ? "Best: \(stats.mentalRotationBestScore)/20 correct" : nil,
@@ -194,9 +194,9 @@ struct TrainView: View {
                         ) {
                             NavigationLink(destination: WordScrambleGameView()) {
                                 GameCard(
-                                    title: "Word Scramble",
-                                    subtitle: "Tap letters to unscramble words fast",
-                                    icon: "character.book.closed.fill",
+                                    title: "Word Hunt",
+                                    subtitle: "Drag to connect letters and find hidden words",
+                                    icon: "text.magnifyingglass",
                                     color: Color(red: 0.15, green: 0.65, blue: 0.35),
                                     bestScore: stats.wordScrambleBestScore > 0
                                         ? "Best: \(stats.wordScrambleBestScore) words" : nil,
@@ -209,15 +209,15 @@ struct TrainView: View {
                         // REFLEX domain
                         domainSection(
                             title: "Reflex",
-                            icon: "bolt.fill",
+                            icon: "bolt.circle.fill",
                             color: .orange,
                             brainScore: stats.reflexBrainScore,
                             description: "Reaction speed and neuromuscular response time"
                         ) {
                             NavigationLink(destination: ReflexGameView()) {
                                 GameCard(
-                                    title: "Reaction Time",
-                                    subtitle: "Tap the circle as fast as you can",
+                                    title: "Lightning Tap",
+                                    subtitle: "Tap the orb the instant it appears",
                                     icon: "bolt.fill",
                                     color: .orange,
                                     bestScore: stats.reflexBestTimeMs > 0
@@ -238,9 +238,9 @@ struct TrainView: View {
                         ) {
                             NavigationLink(destination: PatternMatchGameView()) {
                                 GameCard(
-                                    title: "Pattern Match",
-                                    subtitle: "Find the rule and pick the next number",
-                                    icon: "puzzlepiece.fill",
+                                    title: "Code Cracker",
+                                    subtitle: "Crack the pattern — what comes next?",
+                                    icon: "terminal.fill",
                                     color: .pink,
                                     bestScore: stats.patternBestScore > 0
                                         ? "Best: \(stats.patternBestScore)/10 correct" : nil,

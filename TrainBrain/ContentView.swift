@@ -266,21 +266,21 @@ struct HomeView: View {
                 }
             }
             VStack(spacing: 10) {
-                challengeRow("Memory Training",  icon: "square.grid.3x3.fill", color: .blue,
+                challengeRow("Echo Grid",        icon: "square.grid.3x3.fill",  color: .blue,
                              done: stats.dailyChallengeMemoryDone, destination: AnyView(MemoryGameView()))
-                challengeRow("Reflex Test",      icon: "bolt.fill",            color: .orange,
+                challengeRow("Lightning Tap",    icon: "bolt.fill",             color: .orange,
                              done: stats.dailyChallengeReflexDone, destination: AnyView(ReflexGameView()))
-                challengeRow("Speed Sprint",     icon: "function",             color: .green,
+                challengeRow("Number Rush",      icon: "number",                color: .green,
                              done: stats.dailyChallengeSpeedDone,  destination: AnyView(MathBlitzGameView()))
-                challengeRow("Digit Span",       icon: "textformat.123",       color: .teal,
+                challengeRow("Vault Cracker",    icon: "lock.fill",             color: .teal,
                              done: stats.dailyChallengeDigitSpanDone,     destination: AnyView(DigitSpanGameView()))
-                challengeRow("Stop Signal",      icon: "hand.raised.fill",     color: .red,
+                challengeRow("Bug Catcher",      icon: "ladybug.fill",          color: .red,
                              done: stats.dailyChallengeStopSignalDone,    destination: AnyView(StopSignalGameView()))
-                challengeRow("Mental Rotation",  icon: "rotate.3d",            color: .indigo,
+                challengeRow("Block Builder",    icon: "cube.fill",             color: .indigo,
                              done: stats.dailyChallengeMentalRotationDone, destination: AnyView(MentalRotationGameView()))
-                challengeRow("Word Scramble",    icon: "text.word.spacing",    color: .mint,
+                challengeRow("Word Hunt",        icon: "text.magnifyingglass",  color: .mint,
                              done: stats.dailyChallengeWordScrambleDone,  destination: AnyView(WordScrambleGameView()))
-                challengeRow("Number Trail",     icon: "arrow.triangle.turn.up.right.circle.fill", color: .cyan,
+                challengeRow("Dot Connect",      icon: "point.3.connected.trianglepath.dotted", color: .cyan,
                              done: stats.dailyChallengeNumberTrailDone,   destination: AnyView(NumberTrailGameView()))
                 snapshotChallengeRow
             }

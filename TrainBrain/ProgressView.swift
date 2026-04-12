@@ -439,17 +439,17 @@ struct ProgressView: View {
         switch type {
         case "memory":         return "square.grid.3x3.fill"
         case "reflex":         return "bolt.fill"
-        case "speed":          return "function"
+        case "speed":          return "number"
         case "color":          return "paintpalette.fill"
-        case "flanker":        return "arrow.left.arrow.right"
-        case "spatial":        return "square.grid.3x3.fill.square"
+        case "flanker":        return "fish.fill"
+        case "spatial":        return "star.fill"
         case "visual":         return "eye.fill"
-        case "pattern":        return "square.grid.2x2.fill"
-        case "digitspan":      return "textformat.123"
-        case "stopsignal":     return "hand.raised.fill"
-        case "mentalrotation": return "rotate.3d"
-        case "wordscramble":   return "text.word.spacing"
-        case "numbertrail":    return "arrow.triangle.turn.up.right.circle.fill"
+        case "pattern":        return "terminal.fill"
+        case "digitspan":      return "lock.fill"
+        case "stopsignal":     return "ladybug.fill"
+        case "mentalrotation": return "cube.fill"
+        case "wordscramble":   return "text.magnifyingglass"
+        case "numbertrail":    return "point.3.connected.trianglepath.dotted"
         default:               return "gamecontroller.fill"
         }
     }
@@ -460,14 +460,14 @@ struct ProgressView: View {
         case "reflex":         return .orange
         case "speed":          return .green
         case "color":          return .purple
-        case "flanker":        return .yellow
+        case "flanker":        return .teal
         case "spatial":        return .cyan
-        case "visual":         return .pink
-        case "pattern":        return .indigo
-        case "digitspan":      return .teal
+        case "visual":         return .indigo
+        case "pattern":        return .pink
+        case "digitspan":      return .mint
         case "stopsignal":     return .red
-        case "mentalrotation": return .indigo
-        case "wordscramble":   return .mint
+        case "mentalrotation": return .yellow
+        case "wordscramble":   return Color(red: 0.15, green: 0.65, blue: 0.35)
         case "numbertrail":    return .cyan
         default:               return .secondary
         }
@@ -475,19 +475,19 @@ struct ProgressView: View {
 
     func gameName(_ type: String) -> String {
         switch type {
-        case "memory":         return "Simon Says"
-        case "reflex":         return "Reaction Time"
-        case "speed":          return "Math Blitz"
+        case "memory":         return "Echo Grid"
+        case "reflex":         return "Lightning Tap"
+        case "speed":          return "Number Rush"
         case "color":          return "Stroop Challenge"
-        case "flanker":        return "Arrow Flanker"
-        case "spatial":        return "Spatial Memory"
-        case "visual":         return "Visual Search"
-        case "pattern":        return "Pattern Match"
-        case "digitspan":      return "Digit Span"
-        case "stopsignal":     return "Stop Signal"
-        case "mentalrotation": return "Mental Rotation"
-        case "wordscramble":   return "Word Scramble"
-        case "numbertrail":    return "Number Trail"
+        case "flanker":        return "Fish School"
+        case "spatial":        return "Star Map"
+        case "visual":         return "Odd One Out"
+        case "pattern":        return "Code Cracker"
+        case "digitspan":      return "Vault Cracker"
+        case "stopsignal":     return "Bug Catcher"
+        case "mentalrotation": return "Block Builder"
+        case "wordscramble":   return "Word Hunt"
+        case "numbertrail":    return "Dot Connect"
         default:               return type.capitalized
         }
     }
