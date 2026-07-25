@@ -1,0 +1,15 @@
+{
+  "name": "trainbrain-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Checks that run without an Xcode toolchain",
+  "scripts": {
+    "syntax": "node syntax-check.js ../TrainBrain",
+    "logic": "node logic-tests.js",
+    "test": "node syntax-check.js ../TrainBrain && node logic-tests.js"
+  },
+  "dependencies": {
+    "tree-sitter": "^0.21.0",
+    "tree-sitter-swift": "^0.5.0"
+  }
+}
