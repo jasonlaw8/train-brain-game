@@ -6,6 +6,7 @@ struct ProgressView: View {
     @Query private var statsQuery: [PlayerStats]
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \GameSession.date, order: .forward) private var sessions: [GameSession]
+    @Query(sort: \SnapshotSession.date, order: .forward) private var snapshotSessions: [SnapshotSession]
 
     private var stats: PlayerStats {
         statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
@@ -59,7 +60,7 @@ struct ProgressView: View {
                             .foregroundStyle(scoreColor(stats.overallBrainScore))
                             .clipShape(Capsule())
                     } else {
-                        Text("Complete all 3 metrics to unlock")
+                        Text("Play 3 scored games to unlock")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -119,29 +120,33 @@ struct ProgressView: View {
 
     // MARK: - Per-metric Charts
 
+    /// Every scored game, newest-played first. Games never played are omitted
+    /// rather than shown as empty charts.
+    private var trackedMetrics: [(type: String, title: String, score: Int)] {
+        [("memory",  "Memory",           stats.memoryBrainScore),
+         ("spatial", "Spatial Memory",   stats.spatialBrainScore),
+         ("nback",   "Working Memory",   stats.nbackBrainScore),
+         ("bounce",  "Mental Simulation", stats.bounceBrainScore),
+         ("flanker", "Attention",        stats.flankerBrainScore),
+         ("switch",  "Flexibility",      stats.switchBrainScore),
+         ("speed",   "Processing Speed", stats.speedBrainScore),
+         ("visual",  "Visual Search",    stats.visualBrainScore),
+         ("reflex",  "Reflex",           stats.reflexBrainScore),
+         ("pattern", "Problem Solving",  stats.patternBrainScore)]
+            .filter { $0.2 > 0 }
+    }
+
     var metricChartsSection: some View {
         VStack(spacing: 16) {
-            metricChart(
-                title: "Memory",
-                icon: "square.grid.3x3.fill",
-                color: .blue,
-                currentScore: stats.memoryBrainScore,
-                series: scoreSeries(for: "memory")
-            )
-            metricChart(
-                title: "Reflex",
-                icon: "bolt.fill",
-                color: .orange,
-                currentScore: stats.reflexBrainScore,
-                series: scoreSeries(for: "reflex")
-            )
-            metricChart(
-                title: "Processing Speed",
-                icon: "function",
-                color: .green,
-                currentScore: stats.speedBrainScore,
-                series: scoreSeries(for: "speed")
-            )
+            ForEach(trackedMetrics, id: \.type) { metric in
+                metricChart(
+                    title: metric.title,
+                    icon: gameIcon(metric.type),
+                    color: gameColor(metric.type),
+                    currentScore: metric.score,
+                    series: scoreSeries(for: metric.type)
+                )
+            }
         }
     }
 
@@ -392,21 +397,30 @@ struct ProgressView: View {
             let day = calendar.startOfDay(for: s.date)
             byDay[day, default: []].append(s.brainScore)
         }
-        return byDay.keys.sorted().map { day in
-            let avg = byDay[day]!.reduce(0, +) / byDay[day]!.count
-            return ScorePoint(date: day, score: avg)
+        return byDay.keys.sorted().compactMap { day in
+            guard let scores = byDay[day], !scores.isEmpty else { return nil }
+            return ScorePoint(date: day, score: scores.reduce(0, +) / scores.count)
         }
     }
 
+    /// Days with any activity — training games *or* a Brain Snapshot, which
+    /// previously rendered as an inactive day.
     func activeDaySet() -> Set<Date> {
         let calendar = Calendar.current
-        return Set(sessions.map { calendar.startOfDay(for: $0.date) })
+        var days = Set(sessions.map { calendar.startOfDay(for: $0.date) })
+        days.formUnion(snapshotSessions.map { calendar.startOfDay(for: $0.date) })
+        return days
     }
 
     func trendArrow(for series: [ScorePoint]) -> String {
         guard series.count >= 4 else { return "" }
-        let recent = series.suffix(3).map(\.score).reduce(0, +) / 3
-        let prior  = series.dropLast(3).suffix(3).map(\.score).reduce(0, +) / 3
+        // Average over however many points each window actually has — dividing
+        // by a fixed 3 made a 1-point prior window read as a third of its value.
+        let recentPoints = series.suffix(3).map(\.score)
+        let priorPoints  = series.dropLast(3).suffix(3).map(\.score)
+        guard !recentPoints.isEmpty, !priorPoints.isEmpty else { return "" }
+        let recent = recentPoints.reduce(0, +) / recentPoints.count
+        let prior  = priorPoints.reduce(0, +) / priorPoints.count
         if recent > prior + 2 { return "↑" }
         if recent < prior - 2 { return "↓" }
         return "→"
@@ -434,31 +448,52 @@ struct ProgressView: View {
 
     func gameIcon(_ type: String) -> String {
         switch type {
-        case "memory": return "square.grid.3x3.fill"
-        case "reflex": return "bolt.fill"
-        case "speed":  return "function"
-        case "color":  return "paintpalette.fill"
-        default:       return "gamecontroller.fill"
+        case "memory":  return "square.grid.3x3.fill"
+        case "reflex":  return "bolt.fill"
+        case "speed":   return "function"
+        case "color":   return "paintpalette.fill"
+        case "flanker": return "arrow.left.and.right"
+        case "spatial": return "square.grid.2x2.fill"
+        case "visual":  return "eye.fill"
+        case "pattern": return "puzzlepiece.fill"
+        case "switch":  return "arrow.triangle.swap"
+        case "nback":   return "square.grid.3x3.topleft.filled"
+        case "bounce":  return "arrow.uturn.right.circle.fill"
+        default:        return "gamecontroller.fill"
         }
     }
 
     func gameColor(_ type: String) -> Color {
         switch type {
-        case "memory": return .blue
-        case "reflex": return .orange
-        case "speed":  return .green
-        case "color":  return .purple
-        default:       return .secondary
+        case "memory":  return .blue
+        case "reflex":  return .orange
+        case "speed":   return .green
+        case "color":   return .purple
+        case "flanker": return .teal
+        case "spatial": return .cyan
+        case "visual":  return .indigo
+        case "pattern": return .pink
+        case "switch":  return .mint
+        case "nback":   return .purple
+        case "bounce":  return .cyan
+        default:        return .secondary
         }
     }
 
     func gameName(_ type: String) -> String {
         switch type {
-        case "memory": return "Simon Says"
-        case "reflex": return "Reaction Time"
-        case "speed":  return "Math Blitz"
-        case "color":  return "Stroop Challenge"
-        default:       return type.capitalized
+        case "memory":  return "Simon Says"
+        case "reflex":  return "Reaction Time"
+        case "speed":   return "Math Blitz"
+        case "color":   return "Stroop Challenge"
+        case "flanker": return "Flanker Task"
+        case "spatial": return "Spatial Memory"
+        case "visual":  return "Visual Search"
+        case "pattern": return "Pattern Match"
+        case "switch":  return "Switchboard"
+        case "nback":   return "N-Track"
+        case "bounce":  return "Bounce Cast"
+        default:        return type.capitalized
         }
     }
 

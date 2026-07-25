@@ -134,16 +134,15 @@ struct SettingsView: View {
         }
     }
 
-    @AppStorage("hasOnboarded") private var hasOnboarded = false
 
     private func clearHistory() {
-        // Reset all stats on the PlayerStats record
+        let keptAgeRange = stats.ageRange
         stats.resetAllStats()
-        // Delete all session history records
         try? modelContext.delete(model: GameSession.self)
         try? modelContext.delete(model: SnapshotSession.self)
-        // Reset onboarding so user sees the intro flow again
-        hasOnboarded = false
+        // Age range is only collected during onboarding and the snapshot norms
+        // need it, so preserve it rather than forcing 13 intro pages after a wipe.
+        stats.ageRange = keptAgeRange
     }
 
     private func reschedule() {

@@ -202,8 +202,54 @@ struct MemoryGameView: View {
     var gameContent: some View {
         if vm.gameState == .gameOver {
             gameOverScreen
+        } else if vm.gameState == .idle {
+            idleView
         } else {
             playScreen
+        }
+    }
+
+    // MARK: - Idle
+    //
+    // Every other game opens on an intro; Memory used to drop you straight
+    // onto a dim, empty grid with no explanation.
+
+    var idleView: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 16) {
+                Image(systemName: "square.grid.3x3.fill")
+                    .font(.system(size: 72))
+                    .foregroundStyle(.blue)
+                Text("Simon Says")
+                    .font(.largeTitle.bold())
+                Text("Watch the tiles light up,\nthen repeat the sequence.")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                if stats.memoryBestLevel > 0 {
+                    Label("Record: level \(stats.memoryBestLevel)", systemImage: "trophy.fill")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.yellow)
+                }
+            }
+            Spacer()
+
+            DifficultyPicker(difficulty: $difficulty)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+
+            Button { vm.startGame(difficulty: difficulty) } label: {
+                Text("Start")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 20)
         }
     }
 
@@ -273,16 +319,11 @@ struct MemoryGameView: View {
 
             Spacer()
 
-            // Difficulty + Start
-            if vm.gameState == .idle {
-                DifficultyPicker(difficulty: $difficulty)
-                    .padding(.horizontal)
-            }
-
+            // Restart is only offered between rounds — the idle screen owns Start.
             Button {
                 vm.startGame(difficulty: difficulty)
             } label: {
-                Text(vm.gameState == .idle ? "Start" : "Restart")
+                Text("Restart")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)

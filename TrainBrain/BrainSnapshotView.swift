@@ -308,7 +308,10 @@ struct BrainSnapshotView: View {
                 daysFromNow: daysUntilNext
             )
 
-            // Check achievements
+            // Show results first — the achievement banner overlays them rather
+            // than holding a "Calculating…" spinner for ~4 seconds.
+            withAnimation { phase = .results(session) }
+
             let newAchievements = checkAndUnlock(stats: stats)
             if let first = newAchievements.first {
                 try? await Task.sleep(for: .milliseconds(500))
@@ -317,8 +320,6 @@ struct BrainSnapshotView: View {
                 try? await Task.sleep(for: .seconds(3))
                 unlockedAchievement = nil
             }
-
-            withAnimation { phase = .results(session) }
         }
     }
 
@@ -363,7 +364,7 @@ struct BrainSnapshotView: View {
             ltValidChoiceRTs: ltChoiceValid,
             ltAllValidRTs: ltAllValid,
             asIncongruentCorrect: incongruentCorrect,
-            asIncongruentTotal: 12,
+            asIncongruentTotal: max(1, incongruent.count),
             asIncongruentRTs: incongruentRTs,
             cmHits: hits,
             cmTargets: targets.count,
@@ -371,7 +372,7 @@ struct BrainSnapshotView: View {
             cmNonTargets: nonTargets.count,
             cmCorrectMatchRTs: Array(matchRTs),
             ssCorrectMixed: mixedCorrect,
-            ssMixedTotal: 12,
+            ssMixedTotal: max(1, mixedTrials.count),
             ssMixedCorrectRTs: mixedCorrectRTs
         )
     }

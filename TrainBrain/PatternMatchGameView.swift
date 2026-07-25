@@ -372,9 +372,12 @@ struct PatternMatchGameView: View {
                     Text("What comes next?")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text("Rule: \(pattern.rule)")
+                    // The rule is the answer — reveal it only after the player
+                    // has committed, so it teaches instead of giving it away.
+                    Text(vm.lastCorrect != nil ? "Rule: \(pattern.rule)" : " ")
                         .font(.caption.bold())
                         .foregroundStyle(.pink.opacity(0.8))
+                        .animation(.easeIn(duration: 0.2), value: vm.lastCorrect)
                 }
 
                 // Sequence display
