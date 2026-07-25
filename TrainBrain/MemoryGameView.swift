@@ -18,6 +18,7 @@ class MemoryGameViewModel: ObservableObject {
     @Published var score = 0
     @Published var message = "Tap Start to begin"
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var finalScore = 0
     @Published var finalLevel = 0
     @Published var unlockedAchievement: Achievement? = nil
@@ -111,6 +112,14 @@ class MemoryGameViewModel: ObservableObject {
             }
         }
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        playbackTask?.cancel()
+        playbackTask = nil
+        gameState = .idle
+    }
 }
 
 struct MemoryGameView: View {
@@ -121,10 +130,7 @@ struct MemoryGameView: View {
     @AppStorage("memoryDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
@@ -157,6 +163,7 @@ struct MemoryGameView: View {
         .onAppear {
             vm.onGameOver = { score, level in
                 let isNewBest = score > stats.memoryBestScore
+                vm.wasNewBest = isNewBest
                 let brainScore = PlayerStats.memoryBrainScore(level: level)
                 let session = GameSession(
                     gameType: "memory",
@@ -188,6 +195,7 @@ struct MemoryGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     @ViewBuilder
@@ -317,7 +325,7 @@ struct MemoryGameView: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
-                if vm.finalScore > 0 && vm.finalScore == stats.memoryBestScore {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)

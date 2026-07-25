@@ -41,6 +41,10 @@
 		AABB000000000000000262 /* BrainSnapshotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000261 /* BrainSnapshotView.swift */; };
 		AABB000000000000000272 /* SnapshotResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000271 /* SnapshotResultsView.swift */; };
 		AABB000000000000000282 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000281 /* SplashView.swift */; };
+		AABB000000000000000292 /* GameComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB000000000000000291 /* GameComponents.swift */; };
+		AABB0000000000000002A2 /* SwitchboardGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000002A1 /* SwitchboardGameView.swift */; };
+		AABB0000000000000002B2 /* NBackGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000002B1 /* NBackGameView.swift */; };
+		AABB0000000000000002C2 /* BounceCastGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0000000000000002C1 /* BounceCastGameView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +83,10 @@
 		AABB000000000000000261 /* BrainSnapshotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSnapshotView.swift; sourceTree = "<group>"; };
 		AABB000000000000000271 /* SnapshotResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotResultsView.swift; sourceTree = "<group>"; };
 		AABB000000000000000281 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		AABB000000000000000291 /* GameComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameComponents.swift; sourceTree = "<group>"; };
+		AABB0000000000000002A1 /* SwitchboardGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchboardGameView.swift; sourceTree = "<group>"; };
+		AABB0000000000000002B1 /* NBackGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NBackGameView.swift; sourceTree = "<group>"; };
+		AABB0000000000000002C1 /* BounceCastGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BounceCastGameView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +145,10 @@
 				AABB000000000000000261 /* BrainSnapshotView.swift */,
 				AABB000000000000000271 /* SnapshotResultsView.swift */,
 				AABB000000000000000281 /* SplashView.swift */,
+				AABB000000000000000291 /* GameComponents.swift */,
+				AABB0000000000000002A1 /* SwitchboardGameView.swift */,
+				AABB0000000000000002B1 /* NBackGameView.swift */,
+				AABB0000000000000002C1 /* BounceCastGameView.swift */,
 			);
 			path = TrainBrain;
 			sourceTree = "<group>";
@@ -250,6 +262,10 @@
 				AABB000000000000000262 /* BrainSnapshotView.swift in Sources */,
 				AABB000000000000000272 /* SnapshotResultsView.swift in Sources */,
 				AABB000000000000000282 /* SplashView.swift in Sources */,
+				AABB000000000000000292 /* GameComponents.swift in Sources */,
+				AABB0000000000000002A2 /* SwitchboardGameView.swift in Sources */,
+				AABB0000000000000002B2 /* NBackGameView.swift in Sources */,
+				AABB0000000000000002C2 /* BounceCastGameView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

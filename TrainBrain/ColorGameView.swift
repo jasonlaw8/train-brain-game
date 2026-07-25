@@ -31,6 +31,7 @@ class ColorGameViewModel: ObservableObject {
     @Published var gameState: GameState = .idle
     @Published var lastCorrect: Bool? = nil
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
 
@@ -126,6 +127,14 @@ class ColorGameViewModel: ObservableObject {
         onGameOver?(score, bestStreak)
         gameState = .gameOver
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        timer?.invalidate()
+        timer = nil
+        gameState = .idle
+    }
 }
 
 struct ColorGameView: View {
@@ -135,10 +144,7 @@ struct ColorGameView: View {
     @AppStorage("colorDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
@@ -197,6 +203,7 @@ struct ColorGameView: View {
         .onAppear {
             vm.onGameOver = { score, streak in
                 let isNewBest = score > stats.colorBestScore
+                vm.wasNewBest = isNewBest
                 let session = GameSession(
                     gameType: "color",
                     rawScore: score,
@@ -227,6 +234,7 @@ struct ColorGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     // MARK: Idle

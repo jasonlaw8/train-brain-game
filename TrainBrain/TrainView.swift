@@ -7,10 +7,7 @@ struct TrainView: View {
     @Environment(\.modelContext) private var modelContext
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -41,7 +38,7 @@ struct TrainView: View {
                                     color: .blue,
                                     bestScore: stats.memoryBestLevel > 0
                                         ? "Best level: \(stats.memoryBestLevel)" : nil,
-                                    playedToday: stats.playedMemoryToday,
+                                    playedToday: stats.playedToday("memory"),
                                     brainScore: stats.memoryBrainScore > 0 ? stats.memoryBrainScore : nil
                                 )
                             }
@@ -53,7 +50,7 @@ struct TrainView: View {
                                     color: .purple,
                                     bestScore: stats.colorBestScore > 0
                                         ? "Best: \(stats.colorBestScore) pts" : nil,
-                                    playedToday: stats.playedColorToday
+                                    playedToday: stats.playedToday("color")
                                 )
                             }
                             NavigationLink(destination: SpatialMemoryGameView()) {
@@ -64,8 +61,64 @@ struct TrainView: View {
                                     color: .cyan,
                                     bestScore: stats.spatialBestLevel > 0
                                         ? "Best level: \(stats.spatialBestLevel)" : nil,
-                                    playedToday: stats.dailyChallengeSpatialDone,
+                                    playedToday: stats.playedToday("spatial"),
                                     brainScore: stats.spatialBrainScore > 0 ? stats.spatialBrainScore : nil
+                                )
+                            }
+                        }
+
+                        // WORKING MEMORY domain
+                        domainSection(
+                            title: "Working Memory",
+                            icon: "brain.head.profile",
+                            color: .purple,
+                            brainScore: stats.nbackBrainScore,
+                            description: "Hold and update information while you use it"
+                        ) {
+                            NavigationLink(destination: NBackGameView()) {
+                                GameCard(
+                                    title: "N-Track",
+                                    subtitle: "Spot the position you saw N steps back",
+                                    icon: "square.grid.3x3.topleft.filled",
+                                    color: .purple,
+                                    bestScore: stats.nbackBestLevel > 0
+                                        ? "Best: \(stats.nbackBestLevel)-Back" : nil,
+                                    playedToday: stats.playedToday("nback"),
+                                    brainScore: stats.nbackBrainScore > 0 ? stats.nbackBrainScore : nil
+                                )
+                            }
+                            NavigationLink(destination: BounceCastGameView()) {
+                                GameCard(
+                                    title: "Bounce Cast",
+                                    subtitle: "Memorize the bumpers, predict the exit",
+                                    icon: "arrow.uturn.right.circle.fill",
+                                    color: .cyan,
+                                    bestScore: stats.bounceBestScore > 0
+                                        ? "Best: \(stats.bounceBestScore)/8 rounds" : nil,
+                                    playedToday: stats.playedToday("bounce"),
+                                    brainScore: stats.bounceBrainScore > 0 ? stats.bounceBrainScore : nil
+                                )
+                            }
+                        }
+
+                        // COGNITIVE FLEXIBILITY domain
+                        domainSection(
+                            title: "Flexibility",
+                            icon: "arrow.triangle.swap",
+                            color: .mint,
+                            brainScore: stats.switchBrainScore,
+                            description: "Switch between rules without losing your footing"
+                        ) {
+                            NavigationLink(destination: SwitchboardGameView()) {
+                                GameCard(
+                                    title: "Switchboard",
+                                    subtitle: "The rule changes with the card's position",
+                                    icon: "arrow.triangle.swap",
+                                    color: .mint,
+                                    bestScore: stats.switchBestScore > 0
+                                        ? "Best: \(stats.switchBestScore) correct" : nil,
+                                    playedToday: stats.playedToday("switch"),
+                                    brainScore: stats.switchBrainScore > 0 ? stats.switchBrainScore : nil
                                 )
                             }
                         }
@@ -86,7 +139,7 @@ struct TrainView: View {
                                     color: .teal,
                                     bestScore: stats.flankerBestAccuracy > 0
                                         ? "Best: \(stats.flankerBestAccuracy)% accuracy" : nil,
-                                    playedToday: stats.dailyChallengeFlankerDone,
+                                    playedToday: stats.playedToday("flanker"),
                                     brainScore: stats.flankerBrainScore > 0 ? stats.flankerBrainScore : nil
                                 )
                             }
@@ -108,7 +161,7 @@ struct TrainView: View {
                                     color: .green,
                                     bestScore: stats.speedBestScore > 0
                                         ? "Best: \(stats.speedBestScore) correct" : nil,
-                                    playedToday: stats.dailyChallengeSpeedDone,
+                                    playedToday: stats.playedToday("speed"),
                                     brainScore: stats.speedBrainScore > 0 ? stats.speedBrainScore : nil
                                 )
                             }
@@ -120,7 +173,7 @@ struct TrainView: View {
                                     color: .indigo,
                                     bestScore: stats.visualBestScore > 0
                                         ? "Best: \(stats.visualBestScore)/8 rounds" : nil,
-                                    playedToday: stats.dailyChallengeVisualDone,
+                                    playedToday: stats.playedToday("visual"),
                                     brainScore: stats.visualBrainScore > 0 ? stats.visualBrainScore : nil
                                 )
                             }
@@ -142,7 +195,7 @@ struct TrainView: View {
                                     color: .orange,
                                     bestScore: stats.reflexBestTimeMs > 0
                                         ? String(format: "Best: %.0f ms", stats.reflexBestTimeMs) : nil,
-                                    playedToday: stats.playedReflexToday,
+                                    playedToday: stats.playedToday("reflex"),
                                     brainScore: stats.reflexBrainScore > 0 ? stats.reflexBrainScore : nil
                                 )
                             }
@@ -164,7 +217,7 @@ struct TrainView: View {
                                     color: .pink,
                                     bestScore: stats.patternBestScore > 0
                                         ? "Best: \(stats.patternBestScore)/10 correct" : nil,
-                                    playedToday: stats.dailyChallengePatternDone,
+                                    playedToday: stats.playedToday("pattern"),
                                     brainScore: stats.patternBrainScore > 0 ? stats.patternBrainScore : nil
                                 )
                             }
@@ -182,8 +235,18 @@ struct TrainView: View {
 
     // MARK: - Brain Snapshot featured card
 
+    @ViewBuilder
     var brainSnapshotFeaturedCard: some View {
-        NavigationLink(destination: BrainSnapshotView()) {
+        if stats.canTakeSnapshot {
+            NavigationLink(destination: BrainSnapshotView()) { snapshotCardBody }
+                .buttonStyle(.plain)
+        } else {
+            snapshotCardBody.opacity(0.65)
+        }
+    }
+
+    var snapshotCardBody: some View {
+        Group {
             ZStack {
                 LinearGradient(
                     colors: [Color.purple.opacity(0.85), Color.blue.opacity(0.9)],
@@ -245,7 +308,6 @@ struct TrainView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
     }
 
     @ViewBuilder

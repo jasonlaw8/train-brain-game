@@ -18,6 +18,7 @@ class VisualSearchViewModel: ObservableObject {
     @Published var tappedIndex: Int? = nil
     @Published var roundResult: Bool? = nil    // true=correct false=wrong nil=in progress
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
 
@@ -163,6 +164,14 @@ class VisualSearchViewModel: ObservableObject {
         default: return 3
         }
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        timerTask?.cancel()
+        timerTask = nil
+        gameState = .idle
+    }
 }
 
 // MARK: - View
@@ -174,10 +183,7 @@ struct VisualSearchGameView: View {
     @AppStorage("visualDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -215,6 +221,7 @@ struct VisualSearchGameView: View {
         .onAppear {
             vm.onGameOver = { correct in
                 let isNewBest = correct > stats.visualBestScore
+                vm.wasNewBest = isNewBest
                 let leveledUp = stats.recordVisualGame(correct: correct)
                 let session = GameSession(
                     gameType: "visual",
@@ -246,6 +253,7 @@ struct VisualSearchGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     // MARK: - Idle View

@@ -37,10 +37,7 @@ struct BrainSnapshotView: View {
     @Query private var statsQuery: [PlayerStats]
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     @State private var phase: Phase = .intro

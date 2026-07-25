@@ -291,10 +291,7 @@ struct AchievementsView: View {
     @Environment(\.modelContext) private var modelContext
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 2)

@@ -20,6 +20,11 @@ struct ContentView: View {
 struct HomeView: View {
     @Query private var statsQuery: [PlayerStats]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
+
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = false
+    @AppStorage("notificationHour") private var notificationHour = 9
+    @AppStorage("notificationMinute") private var notificationMinute = 0
 
     @State private var milestoneScore: Int? = nil
     @State private var showMilestone = false
@@ -27,10 +32,7 @@ struct HomeView: View {
     @State private var showLevelUp = false
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -43,8 +45,7 @@ struct HomeView: View {
                     VStack(spacing: 24) {
                         headerSection
                         brainScoreSection
-                        if stats.totalPlayCount > 0 { dailyProgressStrip }
-                        dailyChallengesSection
+                        todayWorkoutSection
                         streakAndLevelSection
                     }
                     .padding(.horizontal, 20)
@@ -90,8 +91,14 @@ struct HomeView: View {
             .animation(.spring(response: 0.5), value: showMilestone)
             .onAppear {
                 prevLevel = stats.playerLevel
+                stats.refreshDailyState()
                 checkMilestones()
                 checkLevelMilestones()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                stats.refreshDailyState()
+                rescheduleNotificationIfNeeded()
             }
             .onChange(of: stats.playerLevel) { _, newLevel in
                 guard newLevel > prevLevel else { return }
@@ -117,10 +124,10 @@ struct HomeView: View {
             Text("Challenge your mind daily")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            if stats.dailyStreakCount > 0 {
+            if stats.currentStreak > 0 {
                 HStack(spacing: 5) {
                     Image(systemName: "flame.fill")
-                    Text("\(stats.dailyStreakCount) day streak")
+                    Text("\(stats.currentStreak) day streak")
                 }
                 .font(.subheadline.bold())
                 .foregroundStyle(.white)
@@ -159,7 +166,7 @@ struct HomeView: View {
                         Text("—")
                             .font(.system(size: 56, weight: .bold, design: .rounded))
                             .foregroundStyle(.secondary)
-                        Text("Play all 3 metrics to unlock")
+                        Text("Play 3 scored games to unlock")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -177,9 +184,19 @@ struct HomeView: View {
         }
     }
 
-    // Brain Snapshot summary card
+    // Brain Snapshot summary card (link disabled during the 24h cooldown)
+    @ViewBuilder
     var brainSnapshotCard: some View {
-        NavigationLink(destination: BrainSnapshotView()) {
+        if stats.canTakeSnapshot {
+            NavigationLink(destination: BrainSnapshotView()) { snapshotCardBody }
+                .buttonStyle(.plain)
+        } else {
+            snapshotCardBody.opacity(0.65)
+        }
+    }
+
+    var snapshotCardBody: some View {
+        Group {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
@@ -214,7 +231,9 @@ struct HomeView: View {
                     }
                 }
 
-                Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.subheadline)
+                if stats.canTakeSnapshot {
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.subheadline)
+                }
             }
             .padding(16)
             .background(
@@ -227,7 +246,6 @@ struct HomeView: View {
                     .stroke(Color.purple.opacity(0.25), lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
     }
 
     func metricBadge(_ name: String, score: Int, color: Color) -> some View {
@@ -239,49 +257,82 @@ struct HomeView: View {
         }
     }
 
-    // MARK: Daily Progress Strip (game-card "played today" dots)
+    // MARK: Today's Workout (rotating 3-game daily plan)
 
-    var dailyProgressStrip: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "calendar").foregroundStyle(.secondary).font(.subheadline)
-            Text("Today").font(.subheadline.bold())
-            Spacer()
-            HStack(spacing: 8) {
-                DailyDot(icon: "square.grid.3x3.fill", color: .blue,   done: stats.playedMemoryToday)
-                DailyDot(icon: "paintpalette.fill",    color: .purple, done: stats.playedColorToday)
-                DailyDot(icon: "bolt.fill",            color: .orange, done: stats.playedReflexToday)
-            }
-            Text("\(stats.dailyGamesCompleted)/3")
-                .font(.caption.bold()).foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .background(Color(.secondarySystemBackground).opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
-    }
+    private var workoutGames: [WorkoutGame] { TodayWorkout.games() }
+    private var workoutDone: Int { workoutGames.filter { stats.playedToday($0.id) }.count }
 
-    // MARK: Daily Challenges
-
-    var dailyChallengesSection: some View {
+    var todayWorkoutSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Daily Challenges").font(.headline)
-                Spacer()
-                if stats.allDailyChallengesDone {
-                    Label("All done!", systemImage: "checkmark.seal.fill")
-                        .font(.caption.bold()).foregroundStyle(.green)
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .stroke(Color(.systemGray5), lineWidth: 5)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(workoutDone) / CGFloat(max(1, workoutGames.count)))
+                        .stroke(workoutDone == workoutGames.count ? Color.green : Color.blue,
+                                style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.spring(response: 0.5), value: workoutDone)
+                    if workoutDone == workoutGames.count {
+                        Image(systemName: "checkmark")
+                            .font(.caption.bold()).foregroundStyle(.green)
+                    } else {
+                        Text("\(workoutDone)/\(workoutGames.count)")
+                            .font(.caption2.bold()).foregroundStyle(.secondary)
+                    }
                 }
+                .frame(width: 34, height: 34)
+                .accessibilityLabel("Workout progress: \(workoutDone) of \(workoutGames.count) games done")
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Today's Workout").font(.headline)
+                    Text(workoutDone == workoutGames.count
+                         ? "Complete — see you tomorrow!"
+                         : "3 games · about 8 minutes")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
             }
+
             VStack(spacing: 10) {
-                challengeRow("Memory Training",  icon: "square.grid.3x3.fill", color: .blue,
-                             done: stats.dailyChallengeMemoryDone, destination: AnyView(MemoryGameView()))
-                challengeRow("Reflex Test",      icon: "bolt.fill",            color: .orange,
-                             done: stats.dailyChallengeReflexDone, destination: AnyView(ReflexGameView()))
-                challengeRow("Speed Sprint",     icon: "function",             color: .green,
-                             done: stats.dailyChallengeSpeedDone,  destination: AnyView(MathBlitzGameView()))
+                ForEach(workoutGames) { game in
+                    workoutRow(game)
+                }
                 snapshotChallengeRow
             }
         }
         .padding()
         .background(Color(.secondarySystemBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    func workoutRow(_ game: WorkoutGame) -> some View {
+        NavigationLink {
+            game.destination
+        } label: {
+            HStack(spacing: 14) {
+                let done = stats.playedToday(game.id)
+                Image(systemName: done ? "checkmark.circle.fill" : game.icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(done ? .green : game.color)
+                    .frame(width: 32)
+                    .animation(.spring(response: 0.4), value: done)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(game.title).font(.subheadline.bold())
+                        .foregroundStyle(done ? .secondary : .primary)
+                    Text(game.subtitle).font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if done {
+                    Text("Done").font(.caption.bold()).foregroundStyle(.green)
+                } else {
+                    Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.caption.bold())
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
     }
 
     var snapshotChallengeRow: some View {
@@ -322,27 +373,6 @@ struct HomeView: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    func challengeRow(_ title: String, icon: String, color: Color, done: Bool, destination: AnyView) -> some View {
-        NavigationLink(destination: destination) {
-            HStack(spacing: 14) {
-                Image(systemName: done ? "checkmark.circle.fill" : icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(done ? .green : color)
-                    .frame(width: 32)
-                    .animation(.spring(response: 0.4), value: done)
-                Text(title).font(.subheadline.bold()).foregroundStyle(done ? .secondary : .primary)
-                Spacer()
-                if done {
-                    Text("Done").font(.caption.bold()).foregroundStyle(.green)
-                } else {
-                    Image(systemName: "chevron.right").foregroundStyle(.secondary).font(.caption.bold())
-                }
-            }
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: Streak & Level
@@ -391,6 +421,20 @@ struct HomeView: View {
         if score >= 100 { return .teal }
         if score >= 85  { return .orange }
         return .red
+    }
+
+    /// Keeps the daily reminder's streak-aware copy current (was reset to 0 on every launch).
+    func rescheduleNotificationIfNeeded() {
+        guard notificationsEnabled else { return }
+        Task {
+            let status = await NotificationManager.shared.authorizationStatus()
+            guard status == .authorized else { return }
+            NotificationManager.shared.scheduleDailyReminder(
+                hour: notificationHour,
+                minute: notificationMinute,
+                streakCount: stats.currentStreak
+            )
+        }
     }
 
     func checkMilestones() {
@@ -443,20 +487,6 @@ struct MilestoneToast: View {
             .padding(.top, 8)
             Spacer()
         }
-    }
-}
-
-// MARK: - DailyDot
-
-struct DailyDot: View {
-    let icon: String
-    let color: Color
-    let done: Bool
-
-    var body: some View {
-        Image(systemName: done ? "checkmark.circle.fill" : icon)
-            .font(.system(size: 18))
-            .foregroundStyle(done ? .green : color.opacity(0.4))
     }
 }
 

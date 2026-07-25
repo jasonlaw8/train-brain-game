@@ -8,10 +8,7 @@ struct ProgressView: View {
     @Query(sort: \GameSession.date, order: .forward) private var sessions: [GameSession]
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {

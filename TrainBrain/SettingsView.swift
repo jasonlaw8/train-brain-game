@@ -16,8 +16,7 @@ struct SettingsView: View {
     @Query private var statsQuery: [PlayerStats]
     @Environment(\.modelContext) private var modelContext
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats(); modelContext.insert(s); return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     @State private var showPermissionDeniedAlert = false
@@ -76,19 +75,6 @@ struct SettingsView: View {
                 Text("One reminder per day, never more. We'll include your streak count so you know what's at stake.")
             }
 
-            // MARK: iCloud Sync
-            Section {
-                HStack {
-                    Label("Sync with iCloud", systemImage: "icloud.fill")
-                    Spacer()
-                    Text("On").foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("iCloud Sync")
-            } footer: {
-                Text("Your progress, Brain Score, and streaks sync automatically across your devices when iCloud is enabled.")
-            }
-
             // MARK: Preferences
             Section("Preferences") {
                 Toggle(isOn: $hapticsEnabled) {
@@ -115,7 +101,8 @@ struct SettingsView: View {
                     Text("TrainBrain").foregroundStyle(.secondary)
                 }
                 LabeledContent("Version") {
-                    Text("1.0").foregroundStyle(.secondary)
+                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
+                        .foregroundStyle(.secondary)
                 }
                 HStack {
                     Spacer()
@@ -163,7 +150,7 @@ struct SettingsView: View {
         NotificationManager.shared.scheduleDailyReminder(
             hour: notificationHour,
             minute: notificationMinute,
-            streakCount: stats.dailyStreakCount
+            streakCount: stats.currentStreak
         )
     }
 }

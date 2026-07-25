@@ -18,6 +18,7 @@ class PatternMatchViewModel: ObservableObject {
     @Published var lastTappedAnswer: Int? = nil // which choice was tapped (for color flash)
     @Published var timeRemaining: Double = 30  // only used on Hard
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
 
@@ -205,6 +206,16 @@ class PatternMatchViewModel: ObservableObject {
         onGameOver?(correctCount)
         gameState = .gameOver
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        timer?.invalidate()
+        timer = nil
+        flashTask?.cancel()
+        flashTask = nil
+        gameState = .idle
+    }
 }
 
 // MARK: - View
@@ -216,10 +227,7 @@ struct PatternMatchGameView: View {
     @AppStorage("patternDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -250,6 +258,7 @@ struct PatternMatchGameView: View {
         .onAppear {
             vm.onGameOver = { correct in
                 let isNewBest = correct > stats.patternBestScore
+                vm.wasNewBest = isNewBest
                 let leveledUp = stats.recordPatternGame(correct: correct)
                 let session = GameSession(
                     gameType: "pattern",
@@ -280,6 +289,7 @@ struct PatternMatchGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     @ViewBuilder
@@ -542,7 +552,7 @@ struct PatternMatchGameView: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
-                if vm.correctCount > 0 && vm.correctCount == stats.patternBestScore {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)

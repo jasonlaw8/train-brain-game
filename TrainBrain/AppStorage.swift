@@ -28,6 +28,7 @@ final class PlayerStats {
     var speedBestScore: Int = 0         // highest correct-answer count in 60s
     var speedPlayCount: Int = 0
     var speedBrainScore: Int = 0        // latest normalized score
+    var speedLastPlayedDate: Date? = nil
 
     // MARK: - Attention (Flanker Task)
     var flankerBestAccuracy: Int = 0    // 0–100 (%)
@@ -53,11 +54,30 @@ final class PlayerStats {
     var patternBrainScore: Int = 0
     var patternLastPlayedDate: Date? = nil
 
+    // MARK: - Cognitive Flexibility (Switchboard)
+    var switchBestScore: Int = 0        // correct answers in 60s
+    var switchPlayCount: Int = 0
+    var switchBrainScore: Int = 0
+    var switchLastPlayedDate: Date? = nil
+
+    // MARK: - Working Memory (N-Track)
+    var nbackBestLevel: Int = 0         // highest N completed at ≥60% accuracy
+    var nbackPlayCount: Int = 0
+    var nbackBrainScore: Int = 0
+    var nbackLastPlayedDate: Date? = nil
+
+    // MARK: - Working Memory (Bounce Cast)
+    var bounceBestScore: Int = 0        // correct rounds (0–8)
+    var bouncePlayCount: Int = 0
+    var bounceBrainScore: Int = 0
+    var bounceLastPlayedDate: Date? = nil
+
     // MARK: - Cross-game engagement
     var totalXP: Int = 0
     var lastPlayedDate: Date? = nil
     var dailyStreakCount: Int = 0
     var lastStreakDate: Date? = nil
+    var longestStreak: Int = 0
 
     // MARK: - Achievements (comma-separated IDs of unlocked achievements)
     var unlockedAchievementIDs: String = ""
@@ -102,12 +122,15 @@ final class PlayerStats {
         memoryBrainScore = 0; memoryLastPlayedDate = nil
         colorBestScore = 0; colorBestStreak = 0; colorPlayCount = 0; colorLastPlayedDate = nil
         reflexBestTimeMs = 0; reflexPlayCount = 0; reflexBrainScore = 0; reflexLastPlayedDate = nil
-        speedBestScore = 0; speedPlayCount = 0; speedBrainScore = 0
+        speedBestScore = 0; speedPlayCount = 0; speedBrainScore = 0; speedLastPlayedDate = nil
         flankerBestAccuracy = 0; flankerPlayCount = 0; flankerBrainScore = 0; flankerLastPlayedDate = nil
         spatialBestLevel = 0; spatialPlayCount = 0; spatialBrainScore = 0; spatialLastPlayedDate = nil
         visualBestScore = 0; visualPlayCount = 0; visualBrainScore = 0; visualLastPlayedDate = nil
         patternBestScore = 0; patternPlayCount = 0; patternBrainScore = 0; patternLastPlayedDate = nil
-        totalXP = 0; lastPlayedDate = nil; dailyStreakCount = 0; lastStreakDate = nil
+        switchBestScore = 0; switchPlayCount = 0; switchBrainScore = 0; switchLastPlayedDate = nil
+        nbackBestLevel = 0; nbackPlayCount = 0; nbackBrainScore = 0; nbackLastPlayedDate = nil
+        bounceBestScore = 0; bouncePlayCount = 0; bounceBrainScore = 0; bounceLastPlayedDate = nil
+        totalXP = 0; lastPlayedDate = nil; dailyStreakCount = 0; lastStreakDate = nil; longestStreak = 0
         unlockedAchievementIDs = ""
         dailyChallengeDate = nil
         dailyChallengeMemoryDone = false; dailyChallengeReflexDone = false
@@ -126,14 +149,43 @@ final class PlayerStats {
 
     var playerLevel: Int { totalXP / 100 + 1 }   // no cap — infinite progression
     var xpProgressInCurrentLevel: Int { totalXP % 100 }
-    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount + flankerPlayCount + spatialPlayCount + visualPlayCount + patternPlayCount }
+    var totalPlayCount: Int { memoryPlayCount + colorPlayCount + reflexPlayCount + speedPlayCount + flankerPlayCount + spatialPlayCount + visualPlayCount + patternPlayCount + switchPlayCount + nbackPlayCount + bouncePlayCount }
 
     // MARK: - Daily tracking (per-game "played today" for game card checkmarks)
 
     var playedMemoryToday: Bool { isToday(memoryLastPlayedDate) }
     var playedColorToday:  Bool { isToday(colorLastPlayedDate) }
     var playedReflexToday: Bool { isToday(reflexLastPlayedDate) }
-    var dailyGamesCompleted: Int { [playedMemoryToday, playedColorToday, playedReflexToday].filter { $0 }.count }
+
+    /// "Played today" lookup by GameSession gameType key.
+    func playedToday(_ gameType: String) -> Bool {
+        switch gameType {
+        case "memory":  return isToday(memoryLastPlayedDate)
+        case "color":   return isToday(colorLastPlayedDate)
+        case "reflex":  return isToday(reflexLastPlayedDate)
+        case "speed":   return isToday(speedLastPlayedDate)
+        case "flanker": return isToday(flankerLastPlayedDate)
+        case "spatial": return isToday(spatialLastPlayedDate)
+        case "visual":  return isToday(visualLastPlayedDate)
+        case "pattern": return isToday(patternLastPlayedDate)
+        case "switch":  return isToday(switchLastPlayedDate)
+        case "nback":   return isToday(nbackLastPlayedDate)
+        case "bounce":  return isToday(bounceLastPlayedDate)
+        default:        return false
+        }
+    }
+
+    // MARK: - Streak (honest display value — a lapsed streak reads 0 without waiting for the next play)
+
+    var currentStreak: Int {
+        guard let last = lastStreakDate else { return 0 }
+        let days = Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: last),
+            to: Calendar.current.startOfDay(for: Date())
+        ).day ?? 0
+        return days <= 1 ? dailyStreakCount : 0
+    }
 
     // MARK: - Brain Snapshot cooldown
     var canTakeSnapshot: Bool {
@@ -153,10 +205,14 @@ final class PlayerStats {
         return Calendar.current.isDateInToday(date)
     }
 
-    /// Overall Brain Score: average of all three metrics. 0 if any are unscored yet.
+    /// Overall Brain Score: average of every scored game (needs at least 3 to unlock).
     var overallBrainScore: Int {
-        guard memoryBrainScore > 0, reflexBrainScore > 0, speedBrainScore > 0 else { return 0 }
-        return (memoryBrainScore + reflexBrainScore + speedBrainScore) / 3
+        let scores = [memoryBrainScore, reflexBrainScore, speedBrainScore,
+                      flankerBrainScore, spatialBrainScore, visualBrainScore,
+                      patternBrainScore, switchBrainScore, nbackBrainScore,
+                      bounceBrainScore].filter { $0 > 0 }
+        guard scores.count >= 3 else { return 0 }
+        return scores.reduce(0, +) / scores.count
     }
 
     /// Whether today's full set of daily challenges is complete.
@@ -189,8 +245,9 @@ final class PlayerStats {
     }
 
     static func reflexBrainScore(avgMs: Double) -> Int {
-        // 280ms ≈ 100 (average); faster = higher. Clamped 70–145.
-        max(70, min(145, Int(70.0 + (280.0 - avgMs) / 4.5)))
+        // 280ms ≈ 100 (population average simple visual RT); ~45ms faster = +15 pts.
+        // Clamped 70–145, so 200ms ≈ 126 and 400ms bottoms out.
+        max(70, min(145, Int(100.0 + (280.0 - avgMs) / 3.0)))
     }
 
     static func speedBrainScore(correct: Int) -> Int {
@@ -216,6 +273,21 @@ final class PlayerStats {
     static func patternBrainScore(correct: Int) -> Int {
         // 7/10 correct ≈ 100 (average). Clamped 70–145.
         max(70, min(145, 35 + correct * 10))
+    }
+
+    static func switchBrainScore(correct: Int) -> Int {
+        // 30 correct in 60s ≈ 100 (average). Clamped 70–145.
+        max(70, min(145, 40 + correct * 2))
+    }
+
+    static func nbackBrainScore(maxN: Int, accuracy: Int) -> Int {
+        // 2-back at ~75% accuracy ≈ 100 (average). Clamped 70–145.
+        max(70, min(145, 45 + maxN * 20 + accuracy / 10))
+    }
+
+    static func bounceBrainScore(correct: Int) -> Int {
+        // 5/8 rounds ≈ 100 (average). Clamped 70–145.
+        max(70, min(145, 40 + correct * 13))
     }
 
     // MARK: - Percentile label
@@ -274,8 +346,36 @@ final class PlayerStats {
         if score > speedBestScore { speedBestScore = score }
         speedPlayCount += 1
         speedBrainScore = Self.speedBrainScore(correct: score)
+        speedLastPlayedDate = Date()
         markDailyChallenge("speed")
         return addXP(score * 2)
+    }
+
+    @discardableResult
+    func recordSwitchGame(score: Int) -> Bool {
+        if score > switchBestScore { switchBestScore = score }
+        switchPlayCount += 1
+        switchBrainScore = Self.switchBrainScore(correct: score)
+        switchLastPlayedDate = Date()
+        return addXP(score * 2)
+    }
+
+    @discardableResult
+    func recordNBackGame(maxN: Int, accuracy: Int) -> Bool {
+        if maxN > nbackBestLevel { nbackBestLevel = maxN }
+        nbackPlayCount += 1
+        nbackBrainScore = Self.nbackBrainScore(maxN: maxN, accuracy: accuracy)
+        nbackLastPlayedDate = Date()
+        return addXP(maxN * 20 + accuracy / 5)
+    }
+
+    @discardableResult
+    func recordBounceGame(correct: Int) -> Bool {
+        if correct > bounceBestScore { bounceBestScore = correct }
+        bouncePlayCount += 1
+        bounceBrainScore = Self.bounceBrainScore(correct: correct)
+        bounceLastPlayedDate = Date()
+        return addXP(correct * 10)
     }
 
     @discardableResult
@@ -429,5 +529,27 @@ final class PlayerStats {
             dailyStreakCount = 1
             lastStreakDate = Date()
         }
+        if dailyStreakCount > longestStreak { longestStreak = dailyStreakCount }
+    }
+}
+
+// MARK: - Singleton access
+//
+// Fetching through the context (rather than relying on a not-yet-refreshed @Query)
+// guarantees repeated calls within one render pass see the same record, so the
+// singleton can never be duplicated.
+extension PlayerStats {
+    static func fetchOrCreate(in context: ModelContext) -> PlayerStats {
+        if let existing = try? context.fetch(FetchDescriptor<PlayerStats>()).first {
+            return existing
+        }
+        let fresh = PlayerStats()
+        context.insert(fresh)
+        return fresh
+    }
+
+    /// Clears stale daily-challenge checkmarks; call on app foreground.
+    func refreshDailyState() {
+        resetDailyChallengesIfNeeded()
     }
 }

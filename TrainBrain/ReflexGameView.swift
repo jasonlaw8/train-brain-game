@@ -15,6 +15,7 @@ class ReflexGameViewModel: ObservableObject {
     @Published var tooEarly = false
     @Published var reactionTimes: [Double] = []
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
     @Published var targetSize: CGFloat = 88
@@ -102,6 +103,14 @@ class ReflexGameViewModel: ObservableObject {
             nextRound()
         }
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        waitTask?.cancel()
+        waitTask = nil
+        gameState = .idle
+    }
 }
 
 struct ReflexGameView: View {
@@ -112,10 +121,7 @@ struct ReflexGameView: View {
     @AppStorage("reflexDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -168,6 +174,7 @@ struct ReflexGameView: View {
         .onAppear {
             vm.onGameOver = { bestMs, avgMs in
                 let isNewBest = stats.reflexBestTimeMs == 0 || bestMs < stats.reflexBestTimeMs
+                vm.wasNewBest = isNewBest
                 let brainScore = PlayerStats.reflexBrainScore(avgMs: avgMs)
                 let session = GameSession(
                     gameType: "reflex",
@@ -199,6 +206,7 @@ struct ReflexGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     // MARK: Arena

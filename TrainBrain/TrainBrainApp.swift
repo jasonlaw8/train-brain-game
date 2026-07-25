@@ -4,9 +4,6 @@ import SwiftData
 @main
 struct TrainBrainApp: App {
     @AppStorage("hasOnboarded") private var hasOnboarded = false
-    @AppStorage("notificationsEnabled") private var notificationsEnabled = false
-    @AppStorage("notificationHour") private var notificationHour = 9
-    @AppStorage("notificationMinute") private var notificationMinute = 0
 
     @State private var showSplash = true
 
@@ -39,17 +36,8 @@ struct TrainBrainApp: App {
                 // this prevents the jarring black-to-content flash
                 try? await Task.sleep(for: .milliseconds(1200))
                 showSplash = false
-
-                // Re-schedule notification on every launch
-                guard notificationsEnabled else { return }
-                let status = await NotificationManager.shared.authorizationStatus()
-                if status == .authorized {
-                    NotificationManager.shared.scheduleDailyReminder(
-                        hour: notificationHour,
-                        minute: notificationMinute,
-                        streakCount: 0
-                    )
-                }
+                // Notification rescheduling happens in ContentView, where the
+                // real streak count is available from the model context.
             }
         }
         .modelContainer(for: [PlayerStats.self, GameSession.self, SnapshotSession.self])

@@ -14,6 +14,7 @@ class MathBlitzViewModel: ObservableObject {
     @Published var timeRemaining: Double = 60
     @Published var lastCorrect: Bool? = nil // nil=unanswered, true/false for flash
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var finalScore: Int = 0
     @Published var finalBrainScore: Int = 0
     @Published var unlockedAchievement: Achievement? = nil
@@ -144,6 +145,16 @@ class MathBlitzViewModel: ObservableObject {
         onGameOver?(score)
         gameState = .gameOver
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        timer?.invalidate()
+        timer = nil
+        flashTask?.cancel()
+        flashTask = nil
+        gameState = .idle
+    }
 }
 
 struct MathBlitzGameView: View {
@@ -154,10 +165,7 @@ struct MathBlitzGameView: View {
     @AppStorage("speedDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -188,6 +196,7 @@ struct MathBlitzGameView: View {
         .onAppear {
             vm.onGameOver = { correct in
                 let isNewBest = correct > stats.speedBestScore
+                vm.wasNewBest = isNewBest
                 let session = GameSession(
                     gameType: "speed",
                     rawScore: correct,
@@ -218,6 +227,7 @@ struct MathBlitzGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     @ViewBuilder
@@ -389,7 +399,7 @@ struct MathBlitzGameView: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
-                if vm.finalScore > 0 && vm.finalScore == stats.speedBestScore {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
