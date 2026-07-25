@@ -105,21 +105,6 @@ struct PauseOverlay: View {
     }
 }
 
-// MARK: - PauseButton (uniform toolbar-style pause control for timed games)
-
-struct PauseButton: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "pause.circle.fill")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityLabel("Pause game")
-    }
-}
-
 // MARK: - Today's Workout
 //
 // A rotating daily plan of 3 games spanning different cognitive domains —

@@ -610,12 +610,6 @@ struct PatternMatchGameView: View {
         }
     }
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 }
 
 // MARK: - Pulsing border animation modifier

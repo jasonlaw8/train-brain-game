@@ -477,7 +477,7 @@ struct VisualSearchGameView: View {
                 resultRow(
                     "Correct",
                     value: "\(vm.correctCount)/\(VisualSearchViewModel.totalRounds)",
-                    color: scoreColor(vm.correctCount)
+                    color: roundsColor(vm.correctCount)
                 )
 
                 let bs = PlayerStats.visualBrainScore(correct: vm.correctCount)
@@ -510,7 +510,7 @@ struct VisualSearchGameView: View {
         }
     }
 
-    func scoreColor(_ correct: Int) -> Color {
+    func roundsColor(_ correct: Int) -> Color {
         switch correct {
         case 7...: return .green
         case 5...: return .teal

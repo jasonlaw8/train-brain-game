@@ -143,7 +143,6 @@ struct FlankerGameView: View {
     @StateObject private var vm = FlankerGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("flankerDifficulty") private var difficulty: Difficulty = .medium
     @State private var pendingStart = false
 
@@ -460,12 +459,6 @@ struct FlankerGameView: View {
         }
     }
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 }
 
 // MARK: - Preview

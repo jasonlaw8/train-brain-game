@@ -121,7 +121,6 @@ struct ReflexGameView: View {
     @StateObject private var vm = ReflexGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("reflexDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {

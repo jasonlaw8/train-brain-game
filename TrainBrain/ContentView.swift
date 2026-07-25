@@ -416,12 +416,6 @@ struct HomeView: View {
 
     // MARK: Helpers
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 
     /// Keeps the daily reminder's streak-aware copy current (was reset to 0 on every launch).
     func rescheduleNotificationIfNeeded() {

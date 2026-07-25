@@ -433,12 +433,6 @@ struct ProgressView: View {
         return .secondary
     }
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 
     func dayLabel(_ date: Date) -> String {
         let f = DateFormatter()

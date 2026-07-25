@@ -161,7 +161,6 @@ struct MathBlitzGameView: View {
     @StateObject private var vm = MathBlitzViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("speedDifficulty") private var difficulty: Difficulty = .medium
     @State private var pendingStart = false
 
@@ -451,12 +450,6 @@ struct MathBlitzGameView: View {
         }
     }
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 }
 
 #Preview {
