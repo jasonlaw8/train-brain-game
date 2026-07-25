@@ -1,0 +1,39 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+
+jobs:
+  static-checks:
+    # Ubuntu only — these checks deliberately need no Xcode, so they cost no
+    # macOS runner minutes. They do not compile the app; build in Xcode too.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install check dependencies
+        working-directory: Tools
+        run: npm install --no-audit --no-fund
+      - name: Swift syntax
+        working-directory: Tools
+        run: node syntax-check.js ../TrainBrain
+      - name: Game logic
+        working-directory: Tools
+        run: node logic-tests.js
+      - name: Xcode project references every source file
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          p = open('TrainBrain.xcodeproj/project.pbxproj').read()
+          refs = {n for _, n in re.findall(r'(AABB[0-9A-F]+) /\* ([\w.]+) \*/ = \{isa = PBXFileReference', p)
+                  if n.endswith('.swift')}
+          disk = {f for f in os.listdir('TrainBrain') if f.endswith('.swift')}
+          missing, stale = sorted(disk - refs), sorted(refs - disk)
+          if missing: print('Not in project (will not compile):', missing)
+          if stale:   print('In project but missing from disk:', stale)
+          sys.exit(1 if missing or stale else 0)
+          PY
