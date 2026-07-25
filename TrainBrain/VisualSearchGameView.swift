@@ -123,17 +123,25 @@ class VisualSearchViewModel: ObservableObject {
     private func buildGrid(round: Int) -> [SearchCell] {
         let cellCount = gridCellCount(round: round)
         let symbol = symbolPool[(round - 1) % symbolPool.count]
+        // The target is coded by shape as well as color. Colour alone made the
+        // odd one out invisible to colorblind players.
+        let targetSymbol = outlineVariant(of: symbol)
         let distractorColor: Color = .blue
         let targetColor: Color = (round % 2 == 0) ? .red : .orange
 
         var result: [SearchCell] = (0..<(cellCount - 1)).map { _ in
             SearchCell(symbol: symbol, color: distractorColor, isTarget: false)
         }
-        let target = SearchCell(symbol: symbol, color: targetColor, isTarget: true)
+        let target = SearchCell(symbol: targetSymbol, color: targetColor, isTarget: true)
         let insertPos = Int.random(in: 0...result.count)
         result.insert(target, at: insertPos)
         targetIndex = insertPos
         return result
+    }
+
+    /// Hollow counterpart of a filled symbol, so the target differs in form.
+    private func outlineVariant(of symbol: String) -> String {
+        symbol.hasSuffix(".fill") ? String(symbol.dropLast(5)) : symbol
     }
 
     private func gridCellCount(round: Int) -> Int {
@@ -181,6 +189,7 @@ struct VisualSearchGameView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
     @AppStorage("visualDifficulty") private var difficulty: Difficulty = .medium
+    @State private var pendingStart = false
 
     private var stats: PlayerStats {
         statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
@@ -218,6 +227,16 @@ struct VisualSearchGameView: View {
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Visual Search")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            // 3-2-1 before the clock starts, so the first stimulus
+            // is not simultaneous with the timer going live.
+            if pendingStart {
+                CountdownOverlay {
+                    pendingStart = false
+                    vm.startGame(difficulty: difficulty)
+                }
+            }
+        }
         .onAppear {
             vm.onGameOver = { correct in
                 let isNewBest = correct > stats.visualBestScore
@@ -289,7 +308,7 @@ struct VisualSearchGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -437,7 +456,7 @@ struct VisualSearchGameView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Play Again")
                     .font(.title3.bold())
                     .foregroundStyle(.white)

@@ -308,6 +308,7 @@ struct ShapeShiftTaskView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(vm.taskState != .showing)
+                .accessibilityLabel(color)
             }
         }
     }

@@ -193,6 +193,7 @@ private struct BrainFactSlide: View {
 // MARK: - Page: Memory (animated tile demo)
 
 private struct MemoryOnboardingPage: View {
+    @State private var isVisible = true
     @State private var iconBounce = false
     @State private var litTiles: Set<Int> = []
 
@@ -243,9 +244,11 @@ private struct MemoryOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .onDisappear { isVisible = false }
     }
 
     private func startTileAnimation() {
+        guard isVisible else { return }
         let sequence = (0..<9).shuffled()
         for (step, tile) in sequence.enumerated() {
             let onDelay  = Double(step) * 0.55
@@ -389,6 +392,7 @@ private struct ReflexOnboardingPage: View {
 // MARK: - Page: Math Blitz demo (intermediate)
 
 private struct MathBlitzOnboardingPage: View {
+    @State private var isVisible = true
     @State private var iconBounce = false
     @State private var currentProblemIndex = 0
     @State private var highlightedAnswer: Int? = nil
@@ -451,10 +455,12 @@ private struct MathBlitzOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .onDisappear { isVisible = false }
     }
 
     private func startDemoLoop() {
         func showAnswer() {
+            guard isVisible else { return }
             highlightedAnswer = current.correctIndex
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                 highlightedAnswer = nil
@@ -471,6 +477,7 @@ private struct MathBlitzOnboardingPage: View {
 // MARK: - Page: Spatial Memory demo
 
 private struct SpatialMemoryOnboardingPage: View {
+    @State private var isVisible = true
     @State private var iconBounce = false
     @State private var litCells: Set<Int> = []
     @State private var phase: Int = 0   // 0=show, 1=hide
@@ -515,9 +522,11 @@ private struct SpatialMemoryOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .onDisappear { isVisible = false }
     }
 
     private func startAnimation() {
+        guard isVisible else { return }
         let targets = Array((0..<(gridSize * gridSize)).shuffled().prefix(5))
         withAnimation { litCells = Set(targets) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -530,6 +539,7 @@ private struct SpatialMemoryOnboardingPage: View {
 // MARK: - Page: Flanker Task demo
 
 private struct FlankerOnboardingPage: View {
+    @State private var isVisible = true
     @State private var iconBounce = false
     @State private var arrowIndex = 0
     @State private var highlight: Bool = false
@@ -599,9 +609,11 @@ private struct FlankerOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .onDisappear { isVisible = false }
     }
 
     private func startLoop() {
+        guard isVisible else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
             arrowIndex = (arrowIndex + 1) % trials.count
             startLoop()
@@ -612,6 +624,7 @@ private struct FlankerOnboardingPage: View {
 // MARK: - Page: Visual Search demo
 
 private struct VisualSearchOnboardingPage: View {
+    @State private var isVisible = true
     @State private var iconBounce = false
     @State private var targetIndex = 0
     @State private var symbols: [String] = []
@@ -661,6 +674,7 @@ private struct VisualSearchOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .onDisappear { isVisible = false }
     }
 
     private func generateGrid() {
@@ -669,6 +683,7 @@ private struct VisualSearchOnboardingPage: View {
     }
 
     private func startLoop() {
+        guard isVisible else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             generateGrid()
             startLoop()
@@ -679,6 +694,7 @@ private struct VisualSearchOnboardingPage: View {
 // MARK: - Page: Pattern Match demo + Get Started
 
 private struct PatternMatchOnboardingPage: View {
+    @State private var isVisible = true
     var onComplete: () -> Void
 
     @State private var iconBounce = false
@@ -753,10 +769,12 @@ private struct PatternMatchOnboardingPage: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .onDisappear { isVisible = false }
     }
 
     private func startDemoLoop() {
         func showAnswer() {
+            guard isVisible else { return }
             highlightedChoice = current.correctIndex
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                 highlightedChoice = nil

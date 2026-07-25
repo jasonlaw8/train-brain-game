@@ -138,6 +138,7 @@ struct SnapshotTransitionView: View {
 // MARK: - Lightning Tap Demo
 
 private struct LightningTapDemoView: View {
+    @State private var isVisible = true
     let color: Color
     @State private var visible = false
     @State private var x: CGFloat = 0.5
@@ -159,9 +160,11 @@ private struct LightningTapDemoView: View {
         .frame(height: 120)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .onAppear { animate() }
+        .onDisappear { isVisible = false }
     }
 
     private func animate() {
+        guard isVisible else { return }
         withAnimation(.spring(response: 0.3)) {
             visible = true
             x = CGFloat.random(in: 0.2...0.8)
@@ -177,6 +180,7 @@ private struct LightningTapDemoView: View {
 // MARK: - Arrow Storm Demo
 
 private struct ArrowStormDemoView: View {
+    @State private var isVisible = true
     let color: Color
     @State private var arrows: [String] = ["←","←","←","←","←"]
     @State private var highlight = false
@@ -198,6 +202,7 @@ private struct ArrowStormDemoView: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onAppear { cycleDemos() }
+        .onDisappear { isVisible = false }
     }
 
     private func cycleDemos() {
@@ -209,6 +214,7 @@ private struct ArrowStormDemoView: View {
         ]
         var idx = 0
         func next() {
+            guard isVisible else { return }
             withAnimation(.easeInOut(duration: 0.3)) {
                 arrows = examples[idx % examples.count]
                 idx += 1
@@ -222,6 +228,7 @@ private struct ArrowStormDemoView: View {
 // MARK: - Card Match Demo
 
 private struct CardMatchDemoView: View {
+    @State private var isVisible = true
     let color: Color
     @State private var cardIndex = 0
     @State private var showCard = true
@@ -270,9 +277,11 @@ private struct CardMatchDemoView: View {
             }
         }
         .onAppear { cycleCards() }
+        .onDisappear { isVisible = false }
     }
 
     private func cycleCards() {
+        guard isVisible else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             showCard = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
@@ -287,6 +296,7 @@ private struct CardMatchDemoView: View {
 // MARK: - Shape Shift Demo
 
 private struct ShapeShiftDemoView: View {
+    @State private var isVisible = true
     let color: Color
     @State private var ruleIdx = 0
     @State private var shapeIdx = 0
@@ -314,9 +324,11 @@ private struct ShapeShiftDemoView: View {
                 .animation(.spring(response: 0.3), value: shapeIdx)
         }
         .onAppear { cycleDemos() }
+        .onDisappear { isVisible = false }
     }
 
     private func cycleDemos() {
+        guard isVisible else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
             shapeIdx += 1
             if shapeIdx % 2 == 0 { ruleIdx += 1 }

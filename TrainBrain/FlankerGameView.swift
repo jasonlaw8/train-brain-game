@@ -145,6 +145,7 @@ struct FlankerGameView: View {
     @Query private var statsQuery: [PlayerStats]
     @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("flankerDifficulty") private var difficulty: Difficulty = .medium
+    @State private var pendingStart = false
 
     private var stats: PlayerStats {
         statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
@@ -175,6 +176,16 @@ struct FlankerGameView: View {
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Flanker Task")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            // 3-2-1 before the clock starts, so the first stimulus
+            // is not simultaneous with the timer going live.
+            if pendingStart {
+                CountdownOverlay {
+                    pendingStart = false
+                    vm.startGame(difficulty: difficulty)
+                }
+            }
+        }
         .onAppear {
             vm.onGameOver = { accuracy in
                 let totalAttempts = vm.finalScore + vm.wrongCount
@@ -264,7 +275,7 @@ struct FlankerGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -346,6 +357,7 @@ struct FlankerGameView: View {
                 .background(Color.teal, in: RoundedRectangle(cornerRadius: 20))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(direction == .left ? "Left" : "Right")
     }
 
     var timerBar: some View {
@@ -417,7 +429,7 @@ struct FlankerGameView: View {
                 .padding(.bottom, 12)
 
             ShareResultButton(
-                gameName: "Flanker",
+                gameName: "Flanker Task",
                 gameIcon: "brain.head.profile",
                 gameColor: .teal,
                 primaryValue: "\(vm.accuracy)",
@@ -427,7 +439,7 @@ struct FlankerGameView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Play Again")
                     .font(.title3.bold())
                     .foregroundStyle(.white)

@@ -163,6 +163,7 @@ struct MathBlitzGameView: View {
     @Query private var statsQuery: [PlayerStats]
     @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("speedDifficulty") private var difficulty: Difficulty = .medium
+    @State private var pendingStart = false
 
     private var stats: PlayerStats {
         statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
@@ -193,6 +194,16 @@ struct MathBlitzGameView: View {
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Math Blitz")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            // 3-2-1 before the clock starts, so the first stimulus
+            // is not simultaneous with the timer going live.
+            if pendingStart {
+                CountdownOverlay {
+                    pendingStart = false
+                    vm.startGame(difficulty: difficulty)
+                }
+            }
+        }
         .onAppear {
             vm.onGameOver = { correct in
                 let isNewBest = correct > stats.speedBestScore
@@ -267,7 +278,7 @@ struct MathBlitzGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -419,7 +430,7 @@ struct MathBlitzGameView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Play Again")
                     .font(.title3.bold())
                     .foregroundStyle(.white)

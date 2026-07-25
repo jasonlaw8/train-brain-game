@@ -158,7 +158,7 @@ struct MemoryGameView: View {
         .animation(.spring(response: 0.4), value: vm.showNewBest)
         .animation(.spring(response: 0.4), value: vm.leveledUpTo)
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Memory")
+        .navigationTitle("Simon Says")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             vm.onGameOver = { score, level in
@@ -313,6 +313,9 @@ struct MemoryGameView: View {
                         )
                         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: vm.highlightedTile)
                         .onTapGesture { vm.tileTapped(index) }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("Tile \(index / 3 + 1), \(index % 3 + 1)")
+                        .accessibilityValue(vm.highlightedTile == index ? "lit" : "")
                 }
             }
             .padding(.horizontal)
@@ -379,7 +382,7 @@ struct MemoryGameView: View {
                 .padding(.bottom, 12)
 
             ShareResultButton(
-                gameName: "Memory", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
+                gameName: "Simon Says", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
                 primaryValue: "\(vm.finalScore)", primaryLabel: "pts",
                 secondaryLine: "Level \(vm.finalLevel)"
             )

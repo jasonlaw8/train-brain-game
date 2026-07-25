@@ -62,9 +62,13 @@ class ReflexGameViewModel: ObservableObject {
     }
 
     private func showTarget() {
+        // A GeometryReader pass before layout settles can report .zero, which
+        // would make the lower bound exceed the upper and trap random(in:).
         let pad: CGFloat = targetSize / 2 + 8
-        targetX = CGFloat.random(in: pad...(containerSize.width - pad))
-        targetY = CGFloat.random(in: pad...(containerSize.height - pad))
+        let maxX = containerSize.width - pad
+        let maxY = containerSize.height - pad
+        targetX = maxX > pad ? CGFloat.random(in: pad...maxX) : containerSize.width / 2
+        targetY = maxY > pad ? CGFloat.random(in: pad...maxY) : containerSize.height / 2
         targetVisible = true
         targetAppearTime = Date()
         gameState = .targetShowing
@@ -169,7 +173,7 @@ struct ReflexGameView: View {
         .animation(.spring(response: 0.4), value: vm.showNewBest)
         .animation(.spring(response: 0.4), value: vm.leveledUpTo)
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Reflex")
+        .navigationTitle("Reaction Time")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             vm.onGameOver = { bestMs, avgMs in
@@ -301,7 +305,7 @@ struct ReflexGameView: View {
 
             if vm.gameState == .finished, let avg = vm.averageTime {
                 ShareResultButton(
-                    gameName: "Reflex", gameIcon: "bolt.fill", gameColor: .orange,
+                    gameName: "Reaction Time", gameIcon: "bolt.fill", gameColor: .orange,
                     primaryValue: String(format: "%.0f", avg), primaryLabel: "ms",
                     secondaryLine: vm.bestTime.map { String(format: "Best %.0f ms", $0) }
                 )
@@ -335,7 +339,10 @@ struct ReflexGameView: View {
         }
     }
 
+    // Scrolls because the stats card plus eight round rows overflows a small
+    // screen, and clips outright at accessibility text sizes.
     var resultsContent: some View {
+        ScrollView {
         VStack(spacing: 20) {
             Text("Results").font(.largeTitle.bold())
 
@@ -380,6 +387,8 @@ struct ReflexGameView: View {
             .padding()
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal)
+        }
+        .padding(.vertical)
         }
     }
 

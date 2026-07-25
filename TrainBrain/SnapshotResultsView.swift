@@ -15,6 +15,7 @@ struct SnapshotResultsView: View {
     @State private var shareImage: UIImage?
 
     private let revealDelays: [Double] = [0.3, 1.1, 1.9, 2.7, 4.0, 5.0]
+    @State private var revealTask: Task<Void, Never>? = nil
 
     var body: some View {
         ScrollView {
@@ -27,6 +28,7 @@ struct SnapshotResultsView: View {
             .padding(.top, 20)
         }
         .onAppear { scheduleReveals() }
+        .onDisappear { revealTask?.cancel(); revealTask = nil }
         .sheet(isPresented: $showShareSheet) {
             if let img = shareImage { ShareSheet(items: [img]) }
         }
@@ -381,9 +383,16 @@ struct SnapshotResultsView: View {
 
     // MARK: - Reveal scheduling
 
+    // A cancellable sequence — the old asyncAfter version kept buzzing on
+    // whatever screen the user landed on after tapping Continue early.
     func scheduleReveals() {
-        for (step, delay) in revealDelays.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        revealTask?.cancel()
+        revealTask = Task {
+            var elapsed: Double = 0
+            for (step, delay) in revealDelays.enumerated() {
+                try? await Task.sleep(for: .seconds(delay - elapsed))
+                elapsed = delay
+                if Task.isCancelled { return }
                 withAnimation(.spring(response: 0.5)) {
                     revealed = step + 1
                 }

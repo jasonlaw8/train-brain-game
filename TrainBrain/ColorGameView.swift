@@ -142,6 +142,7 @@ struct ColorGameView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
     @AppStorage("colorDifficulty") private var difficulty: Difficulty = .medium
+    @State private var pendingStart = false
 
     private var stats: PlayerStats {
         statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
@@ -198,8 +199,18 @@ struct ColorGameView: View {
         .animation(.spring(response: 0.4), value: vm.showNewBest)
         .animation(.spring(response: 0.4), value: vm.leveledUpTo)
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Color")
+        .navigationTitle("Stroop Challenge")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            // 3-2-1 before the clock starts, so the first stimulus
+            // is not simultaneous with the timer going live.
+            if pendingStart {
+                CountdownOverlay {
+                    pendingStart = false
+                    vm.startGame(difficulty: difficulty)
+                }
+            }
+        }
         .onAppear {
             vm.onGameOver = { score, streak in
                 let isNewBest = score > stats.colorBestScore
@@ -375,7 +386,7 @@ struct ColorGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
             ShareResultButton(
-                gameName: "Color", gameIcon: "paintpalette.fill", gameColor: .purple,
+                gameName: "Stroop Challenge", gameIcon: "paintpalette.fill", gameColor: .purple,
                 primaryValue: "\(vm.score)", primaryLabel: "pts",
                 secondaryLine: "\(vm.accuracy)% accuracy"
             )
@@ -388,7 +399,7 @@ struct ColorGameView: View {
     // MARK: Helpers
 
     func startButton(label: String, color: Color) -> some View {
-        Button { vm.startGame(difficulty: difficulty) } label: {
+        Button { pendingStart = true } label: {
             Text(label)
                 .font(.title3.bold())
                 .foregroundStyle(.white)
