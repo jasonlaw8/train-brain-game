@@ -10,14 +10,26 @@ of mistake that are cheap to catch early.
 
 ```bash
 cd Tools
-npm install
-npm test
+npm test          # no install step — these have no dependencies
 ```
 
-**`syntax-check.js`** parses every `.swift` file with tree-sitter-swift and
-fails on any `ERROR` or `MISSING` node. This catches unbalanced braces and
-malformed declarations — the failure mode when editing Swift without a
-compiler. It does not type-check.
+**`syntax-check.js`** lexes every `.swift` file and verifies all delimiters are
+balanced and correctly nested. It understands the constructs that make naive
+brace-counting wrong: nested block comments, multiline strings, raw strings with
+`#` delimiters, escapes, and recursive `\( )` interpolation.
+
+It is a lexer, not a parser. It catches the failure mode of editing Swift
+without a compiler — a brace dropped or doubled by a bad edit. It will **not**
+catch type errors, undefined symbols, or bad syntax within a balanced file.
+
+This started as a tree-sitter-based parser, which was stricter but needed a
+native module that compiles at install time; it broke CI on a runner with no
+build toolchain. Dependency-free and reliable beat stricter and fragile.
+
+**`syntax-check.test.js`** tests the checker against 27 cases — real Swift it
+must accept (interpolation, raw strings, `let c: Character = "}"`) and real
+breakage it must reject. A checker that never fails is worse than no checker,
+so this runs first in CI.
 
 **`logic-tests.js`** holds JS ports of the pure logic in the app and exercises
 it: Bounce Cast's ball physics (deflection table, reversibility, termination),

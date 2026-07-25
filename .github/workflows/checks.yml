@@ -7,23 +7,27 @@ on:
 
 jobs:
   static-checks:
-    # Ubuntu only — these checks deliberately need no Xcode, so they cost no
-    # macOS runner minutes. They do not compile the app; build in Xcode too.
+    # Ubuntu only, and deliberately dependency-free: no npm install, no native
+    # modules, no macOS runner minutes. These checks do not compile the app.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Install check dependencies
+          node-version: '22'
+
+      - name: Structure checker self-test
         working-directory: Tools
-        run: npm install --no-audit --no-fund
-      - name: Swift syntax
+        run: node syntax-check.test.js
+
+      - name: Swift structure
         working-directory: Tools
         run: node syntax-check.js ../TrainBrain
+
       - name: Game logic
         working-directory: Tools
         run: node logic-tests.js
+
       - name: Xcode project references every source file
         run: |
           python3 - <<'PY'
