@@ -14,7 +14,7 @@ struct Achievement: Identifiable {
     func isUnlocked(for stats: PlayerStats) -> Bool { stats.isAchievementUnlocked(id) }
 }
 
-// MARK: - All achievements (14 total)
+// MARK: - All achievements
 
 let allAchievements: [Achievement] = [
     Achievement(
@@ -251,10 +251,10 @@ let allAchievements: [Achievement] = [
     Achievement(
         id: "snapshot_improve",
         name: "Real Growth",
-        description: "Achieve significant improvement on any domain",
+        description: "Beat your baseline Brain Score",
         icon: "chart.line.uptrend.xyaxis",
         color: .green
-    ) { $0.isAchievementUnlocked("snapshot_improve") },
+    ) { $0.baselineBrainScore > 0 && $0.bestBrainScore > $0.baselineBrainScore },
 
     Achievement(
         id: "brain_700",
@@ -271,6 +271,87 @@ let allAchievements: [Achievement] = [
         icon: "calendar.badge.clock",
         color: .teal
     ) { $0.snapshotSessionCount >= 10 },
+
+    // MARK: Flexibility (Switchboard)
+    Achievement(
+        id: "switch_25",
+        name: "Rule Bender",
+        description: "Get 25 correct in Switchboard",
+        icon: "arrow.triangle.swap",
+        color: .mint
+    ) { $0.switchBestScore >= 25 },
+
+    Achievement(
+        id: "switch_45",
+        name: "Mental Gymnast",
+        description: "Get 45 correct in Switchboard",
+        icon: "figure.gymnastics",
+        color: .mint
+    ) { $0.switchBestScore >= 45 },
+
+    // MARK: Working memory (N-Track)
+    Achievement(
+        id: "nback_2",
+        name: "Two Steps Back",
+        description: "Reach 2-Back in N-Track",
+        icon: "square.grid.3x3.topleft.filled",
+        color: .purple
+    ) { $0.nbackBestLevel >= 2 },
+
+    Achievement(
+        id: "nback_3",
+        name: "Deep Recall",
+        description: "Reach 3-Back in N-Track",
+        icon: "brain.head.profile",
+        color: .purple
+    ) { $0.nbackBestLevel >= 3 },
+
+    Achievement(
+        id: "nback_4",
+        name: "Working Memory Master",
+        description: "Reach 4-Back in N-Track",
+        icon: "crown.fill",
+        color: .purple
+    ) { $0.nbackBestLevel >= 4 },
+
+    // MARK: Mental simulation (Bounce Cast)
+    Achievement(
+        id: "bounce_6",
+        name: "Bank Shot",
+        description: "Get 6 of 8 rounds in Bounce Cast",
+        icon: "arrow.uturn.right.circle.fill",
+        color: .cyan
+    ) { $0.bounceBestScore >= 6 },
+
+    Achievement(
+        id: "bounce_8",
+        name: "Perfect Prediction",
+        description: "Get all 8 rounds in Bounce Cast",
+        icon: "target",
+        color: .cyan
+    ) { $0.bounceBestScore >= 8 },
+
+    // MARK: Consistency
+    Achievement(
+        id: "streak_30days",
+        name: "Month of Momentum",
+        description: "Train 30 days in a row",
+        icon: "flame.fill",
+        color: .orange
+    ) { $0.longestStreak >= 30 },
+
+    Achievement(
+        id: "workout_complete",
+        name: "Full Workout",
+        description: "Try every game at least once",
+        icon: "checkmark.seal.fill",
+        color: .green
+    ) {
+        $0.memoryPlayCount > 0 && $0.colorPlayCount > 0 && $0.reflexPlayCount > 0
+            && $0.speedPlayCount > 0 && $0.flankerPlayCount > 0 && $0.spatialPlayCount > 0
+            && $0.visualPlayCount > 0 && $0.patternPlayCount > 0 && $0.switchPlayCount > 0
+            && $0.nbackPlayCount > 0 && $0.bouncePlayCount > 0
+    },
 ]
 
 // MARK: - Check & unlock
@@ -291,10 +372,7 @@ struct AchievementsView: View {
     @Environment(\.modelContext) private var modelContext
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 2)

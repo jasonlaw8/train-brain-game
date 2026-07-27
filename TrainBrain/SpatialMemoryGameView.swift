@@ -24,6 +24,7 @@ class SpatialMemoryViewModel: ObservableObject {
     @Published var wrongCell: Int? = nil
     @Published var finalLevel: Int = 0
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
 
@@ -155,6 +156,14 @@ class SpatialMemoryViewModel: ObservableObject {
         case .gameOver: return "Game Over"
         }
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        playbackTask?.cancel()
+        playbackTask = nil
+        gameState = .idle
+    }
 }
 
 // MARK: - View
@@ -166,10 +175,7 @@ struct SpatialMemoryGameView: View {
     @AppStorage("spatialDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -200,6 +206,7 @@ struct SpatialMemoryGameView: View {
         .onAppear {
             vm.onGameOver = { level in
                 let isNewBest = level > stats.spatialBestLevel
+                vm.wasNewBest = isNewBest
                 let leveledUp = stats.recordSpatialGame(level: level)
                 let session = GameSession(
                     gameType: "spatial",
@@ -230,6 +237,7 @@ struct SpatialMemoryGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     // MARK: - Content router
@@ -462,7 +470,7 @@ struct SpatialMemoryGameView: View {
                 )
                 .padding(.horizontal)
 
-                if vm.finalLevel > 0 && vm.finalLevel == stats.spatialBestLevel {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)

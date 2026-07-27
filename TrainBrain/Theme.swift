@@ -81,6 +81,7 @@ struct DifficultyPicker: View {
 // MARK: - Animated Home Background
 
 struct AnimatedGradientBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animate = false
 
     private struct Blob {
@@ -108,14 +109,16 @@ struct AnimatedGradientBackground: View {
                     .offset(animate ? b.end : b.start)
                     .blur(radius: 55)
                     .animation(
-                        .easeInOut(duration: b.duration)
-                        .repeatForever(autoreverses: true)
-                        .delay(b.delay),
+                        reduceMotion ? nil :
+                            .easeInOut(duration: b.duration)
+                            .repeatForever(autoreverses: true)
+                            .delay(b.delay),
                         value: animate
                     )
             }
         }
-        .onAppear { animate = true }
+        .onAppear { animate = !reduceMotion }
+        .accessibilityHidden(true)
     }
 }
 

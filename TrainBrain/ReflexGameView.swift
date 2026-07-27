@@ -15,6 +15,7 @@ class ReflexGameViewModel: ObservableObject {
     @Published var tooEarly = false
     @Published var reactionTimes: [Double] = []
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
     @Published var targetSize: CGFloat = 88
@@ -61,9 +62,13 @@ class ReflexGameViewModel: ObservableObject {
     }
 
     private func showTarget() {
+        // A GeometryReader pass before layout settles can report .zero, which
+        // would make the lower bound exceed the upper and trap random(in:).
         let pad: CGFloat = targetSize / 2 + 8
-        targetX = CGFloat.random(in: pad...(containerSize.width - pad))
-        targetY = CGFloat.random(in: pad...(containerSize.height - pad))
+        let maxX = containerSize.width - pad
+        let maxY = containerSize.height - pad
+        targetX = maxX > pad ? CGFloat.random(in: pad...maxX) : containerSize.width / 2
+        targetY = maxY > pad ? CGFloat.random(in: pad...maxY) : containerSize.height / 2
         targetVisible = true
         targetAppearTime = Date()
         gameState = .targetShowing
@@ -102,20 +107,24 @@ class ReflexGameViewModel: ObservableObject {
             nextRound()
         }
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        waitTask?.cancel()
+        waitTask = nil
+        gameState = .idle
+    }
 }
 
 struct ReflexGameView: View {
     @StateObject private var vm = ReflexGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("reflexDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -163,11 +172,12 @@ struct ReflexGameView: View {
         .animation(.spring(response: 0.4), value: vm.showNewBest)
         .animation(.spring(response: 0.4), value: vm.leveledUpTo)
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Reflex")
+        .navigationTitle("Reaction Time")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             vm.onGameOver = { bestMs, avgMs in
                 let isNewBest = stats.reflexBestTimeMs == 0 || bestMs < stats.reflexBestTimeMs
+                vm.wasNewBest = isNewBest
                 let brainScore = PlayerStats.reflexBrainScore(avgMs: avgMs)
                 let session = GameSession(
                     gameType: "reflex",
@@ -199,6 +209,7 @@ struct ReflexGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     // MARK: Arena
@@ -293,7 +304,7 @@ struct ReflexGameView: View {
 
             if vm.gameState == .finished, let avg = vm.averageTime {
                 ShareResultButton(
-                    gameName: "Reflex", gameIcon: "bolt.fill", gameColor: .orange,
+                    gameName: "Reaction Time", gameIcon: "bolt.fill", gameColor: .orange,
                     primaryValue: String(format: "%.0f", avg), primaryLabel: "ms",
                     secondaryLine: vm.bestTime.map { String(format: "Best %.0f ms", $0) }
                 )
@@ -327,7 +338,10 @@ struct ReflexGameView: View {
         }
     }
 
+    // Scrolls because the stats card plus eight round rows overflows a small
+    // screen, and clips outright at accessibility text sizes.
     var resultsContent: some View {
+        ScrollView {
         VStack(spacing: 20) {
             Text("Results").font(.largeTitle.bold())
 
@@ -372,6 +386,8 @@ struct ReflexGameView: View {
             .padding()
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal)
+        }
+        .padding(.vertical)
         }
     }
 

@@ -14,6 +14,7 @@ class MathBlitzViewModel: ObservableObject {
     @Published var timeRemaining: Double = 60
     @Published var lastCorrect: Bool? = nil // nil=unanswered, true/false for flash
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var finalScore: Int = 0
     @Published var finalBrainScore: Int = 0
     @Published var unlockedAchievement: Achievement? = nil
@@ -144,20 +145,27 @@ class MathBlitzViewModel: ObservableObject {
         onGameOver?(score)
         gameState = .gameOver
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        timer?.invalidate()
+        timer = nil
+        flashTask?.cancel()
+        flashTask = nil
+        gameState = .idle
+    }
 }
 
 struct MathBlitzGameView: View {
     @StateObject private var vm = MathBlitzViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("speedDifficulty") private var difficulty: Difficulty = .medium
+    @State private var pendingStart = false
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -185,9 +193,20 @@ struct MathBlitzGameView: View {
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Math Blitz")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            // 3-2-1 before the clock starts, so the first stimulus
+            // is not simultaneous with the timer going live.
+            if pendingStart {
+                CountdownOverlay {
+                    pendingStart = false
+                    vm.startGame(difficulty: difficulty)
+                }
+            }
+        }
         .onAppear {
             vm.onGameOver = { correct in
                 let isNewBest = correct > stats.speedBestScore
+                vm.wasNewBest = isNewBest
                 let session = GameSession(
                     gameType: "speed",
                     rawScore: correct,
@@ -218,6 +237,7 @@ struct MathBlitzGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     @ViewBuilder
@@ -257,7 +277,7 @@ struct MathBlitzGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -389,7 +409,7 @@ struct MathBlitzGameView: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
-                if vm.finalScore > 0 && vm.finalScore == stats.speedBestScore {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
@@ -409,7 +429,7 @@ struct MathBlitzGameView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Play Again")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -430,12 +450,6 @@ struct MathBlitzGameView: View {
         }
     }
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 }
 
 #Preview {

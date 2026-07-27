@@ -65,9 +65,13 @@ class LightningTapViewModel: ObservableObject {
     }
 
     private func showTarget() {
+        // A GeometryReader pass before layout settles can report .zero, which
+        // would make the lower bound exceed the upper and trap random(in:).
         let pad: CGFloat = targetSize / 2 + 8
-        targetX = CGFloat.random(in: pad...(containerSize.width - pad))
-        targetY = CGFloat.random(in: pad...(containerSize.height - pad))
+        let maxX = containerSize.width - pad
+        let maxY = containerSize.height - pad
+        targetX = maxX > pad ? CGFloat.random(in: pad...maxX) : containerSize.width / 2
+        targetY = maxY > pad ? CGFloat.random(in: pad...maxY) : containerSize.height / 2
 
         if taskPhase == .phaseA {
             orbColor = .orange

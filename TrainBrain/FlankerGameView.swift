@@ -15,6 +15,7 @@ class FlankerGameViewModel: ObservableObject {
     @Published var wrongCount: Int = 0
     @Published var lastCorrect: Bool? = nil  // nil=unanswered, true/false for brief flash
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var unlockedAchievement: Achievement? = nil
     @Published var leveledUpTo: Int? = nil
     @Published var finalScore: Int = 0
@@ -33,9 +34,11 @@ class FlankerGameViewModel: ObservableObject {
 
     enum GameState { case idle, playing, gameOver }
 
+    // Answering nothing scores 0, not 100 — otherwise idling for 60s
+    // recorded a perfect run.
     var accuracy: Int {
         let total = score + wrongCount
-        guard total > 0 else { return 100 }
+        guard total > 0 else { return 0 }
         return score * 100 / total
     }
 
@@ -122,6 +125,16 @@ class FlankerGameViewModel: ObservableObject {
         onGameOver?(accuracy)
         gameState = .gameOver
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        timer?.invalidate()
+        timer = nil
+        flashTask?.cancel()
+        flashTask = nil
+        gameState = .idle
+    }
 }
 
 // MARK: - View
@@ -130,14 +143,11 @@ struct FlankerGameView: View {
     @StateObject private var vm = FlankerGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("flankerDifficulty") private var difficulty: Difficulty = .medium
+    @State private var pendingStart = false
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     var body: some View {
@@ -165,11 +175,22 @@ struct FlankerGameView: View {
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
         .navigationTitle("Flanker Task")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            // 3-2-1 before the clock starts, so the first stimulus
+            // is not simultaneous with the timer going live.
+            if pendingStart {
+                CountdownOverlay {
+                    pendingStart = false
+                    vm.startGame(difficulty: difficulty)
+                }
+            }
+        }
         .onAppear {
             vm.onGameOver = { accuracy in
                 let totalAttempts = vm.finalScore + vm.wrongCount
-                let safeAccuracy = totalAttempts > 0 ? vm.finalScore * 100 / totalAttempts : 100
+                let safeAccuracy = totalAttempts > 0 ? vm.finalScore * 100 / totalAttempts : 0
                 let isNewBest = safeAccuracy > stats.flankerBestAccuracy && totalAttempts > 0
+                vm.wasNewBest = isNewBest
                 let session = GameSession(
                     gameType: "flanker",
                     rawScore: vm.finalScore,
@@ -200,6 +221,7 @@ struct FlankerGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     @ViewBuilder
@@ -252,7 +274,7 @@ struct FlankerGameView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Start")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -334,6 +356,7 @@ struct FlankerGameView: View {
                 .background(Color.teal, in: RoundedRectangle(cornerRadius: 20))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(direction == .left ? "Left" : "Right")
     }
 
     var timerBar: some View {
@@ -392,8 +415,7 @@ struct FlankerGameView: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
-                let totalAttempts = vm.finalScore + vm.wrongCount
-                if totalAttempts > 0 && vm.accuracy == stats.flankerBestAccuracy && vm.accuracy > 0 {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
@@ -406,7 +428,7 @@ struct FlankerGameView: View {
                 .padding(.bottom, 12)
 
             ShareResultButton(
-                gameName: "Flanker",
+                gameName: "Flanker Task",
                 gameIcon: "brain.head.profile",
                 gameColor: .teal,
                 primaryValue: "\(vm.accuracy)",
@@ -416,7 +438,7 @@ struct FlankerGameView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
 
-            Button { vm.startGame(difficulty: difficulty) } label: {
+            Button { pendingStart = true } label: {
                 Text("Play Again")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -437,12 +459,6 @@ struct FlankerGameView: View {
         }
     }
 
-    func scoreColor(_ score: Int) -> Color {
-        if score >= 120 { return .green }
-        if score >= 100 { return .teal }
-        if score >= 85  { return .orange }
-        return .red
-    }
 }
 
 // MARK: - Preview

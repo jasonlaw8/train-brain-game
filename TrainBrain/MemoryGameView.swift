@@ -18,6 +18,7 @@ class MemoryGameViewModel: ObservableObject {
     @Published var score = 0
     @Published var message = "Tap Start to begin"
     @Published var showNewBest = false
+    @Published var wasNewBest = false   // set before stats update, so ties do not count
     @Published var finalScore = 0
     @Published var finalLevel = 0
     @Published var unlockedAchievement: Achievement? = nil
@@ -111,20 +112,24 @@ class MemoryGameViewModel: ObservableObject {
             }
         }
     }
+
+    /// Tears down every timer and task without recording a result.
+    /// Called from .onDisappear so leaving mid-game never writes a session.
+    func abandon() {
+        playbackTask?.cancel()
+        playbackTask = nil
+        gameState = .idle
+    }
 }
 
 struct MemoryGameView: View {
     @StateObject private var vm = MemoryGameViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query private var statsQuery: [PlayerStats]
-    @Query(sort: \GameSession.date, order: .reverse) private var sessions: [GameSession]
     @AppStorage("memoryDifficulty") private var difficulty: Difficulty = .medium
 
     private var stats: PlayerStats {
-        if let s = statsQuery.first { return s }
-        let s = PlayerStats()
-        modelContext.insert(s)
-        return s
+        statsQuery.first ?? PlayerStats.fetchOrCreate(in: modelContext)
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
@@ -152,11 +157,12 @@ struct MemoryGameView: View {
         .animation(.spring(response: 0.4), value: vm.showNewBest)
         .animation(.spring(response: 0.4), value: vm.leveledUpTo)
         .animation(.spring(response: 0.4), value: vm.unlockedAchievement?.id)
-        .navigationTitle("Memory")
+        .navigationTitle("Simon Says")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             vm.onGameOver = { score, level in
                 let isNewBest = score > stats.memoryBestScore
+                vm.wasNewBest = isNewBest
                 let brainScore = PlayerStats.memoryBrainScore(level: level)
                 let session = GameSession(
                     gameType: "memory",
@@ -188,14 +194,61 @@ struct MemoryGameView: View {
                 }
             }
         }
+        .onDisappear { vm.abandon() }
     }
 
     @ViewBuilder
     var gameContent: some View {
         if vm.gameState == .gameOver {
             gameOverScreen
+        } else if vm.gameState == .idle {
+            idleView
         } else {
             playScreen
+        }
+    }
+
+    // MARK: - Idle
+    //
+    // Every other game opens on an intro; Memory used to drop you straight
+    // onto a dim, empty grid with no explanation.
+
+    var idleView: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 16) {
+                Image(systemName: "square.grid.3x3.fill")
+                    .font(.system(size: 72))
+                    .foregroundStyle(.blue)
+                Text("Simon Says")
+                    .font(.largeTitle.bold())
+                Text("Watch the tiles light up,\nthen repeat the sequence.")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                if stats.memoryBestLevel > 0 {
+                    Label("Record: level \(stats.memoryBestLevel)", systemImage: "trophy.fill")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.yellow)
+                }
+            }
+            Spacer()
+
+            DifficultyPicker(difficulty: $difficulty)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+
+            Button { vm.startGame(difficulty: difficulty) } label: {
+                Text("Start")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 20)
         }
     }
 
@@ -259,22 +312,20 @@ struct MemoryGameView: View {
                         )
                         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: vm.highlightedTile)
                         .onTapGesture { vm.tileTapped(index) }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("Tile \(index / 3 + 1), \(index % 3 + 1)")
+                        .accessibilityValue(vm.highlightedTile == index ? "lit" : "")
                 }
             }
             .padding(.horizontal)
 
             Spacer()
 
-            // Difficulty + Start
-            if vm.gameState == .idle {
-                DifficultyPicker(difficulty: $difficulty)
-                    .padding(.horizontal)
-            }
-
+            // Restart is only offered between rounds — the idle screen owns Start.
             Button {
                 vm.startGame(difficulty: difficulty)
             } label: {
-                Text(vm.gameState == .idle ? "Start" : "Restart")
+                Text("Restart")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -317,7 +368,7 @@ struct MemoryGameView: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
 
-                if vm.finalScore > 0 && vm.finalScore == stats.memoryBestScore {
+                if vm.wasNewBest {
                     Label("New personal best!", systemImage: "star.fill")
                         .font(.subheadline.bold())
                         .foregroundStyle(.yellow)
@@ -330,7 +381,7 @@ struct MemoryGameView: View {
                 .padding(.bottom, 12)
 
             ShareResultButton(
-                gameName: "Memory", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
+                gameName: "Simon Says", gameIcon: "square.grid.3x3.fill", gameColor: .blue,
                 primaryValue: "\(vm.finalScore)", primaryLabel: "pts",
                 secondaryLine: "Level \(vm.finalLevel)"
             )
